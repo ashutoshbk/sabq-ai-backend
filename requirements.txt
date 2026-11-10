@@ -1,0 +1,10 @@
+# Runtime
+fastapi>=0.115
+uvicorn[standard]>=0.30
+openai>=1.100
+pydantic>=2.7
+pydantic-settings>=2.3
+
+# Tests and the smoke-test script
+httpx>=0.27
+pytest>=8.0

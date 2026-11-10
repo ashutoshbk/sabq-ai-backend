@@ -1,0 +1,14 @@
+[
+  {"domain": "weforum.org", "name": "World Economic Forum", "level": 1},
+  {"domain": "imd.org", "name": "IMD World Competitiveness Center", "level": 1},
+  {"domain": "un.org", "name": "United Nations", "level": 1},
+  {"domain": "unodc.org", "name": "UN Office on Drugs and Crime (UNODC)", "level": 1},
+  {"domain": "oecd.org", "name": "OECD", "level": 1},
+  {"domain": "police.gov.sg", "name": "Singapore Police Force", "level": 2},
+  {"domain": "met.police.uk", "name": "Metropolitan Police London", "level": 2},
+  {"domain": "nyc.gov", "name": "New York Police Department (NYPD)", "level": 2},
+  {"domain": "interpol.int", "name": "INTERPOL", "level": 2},
+  {"domain": "europol.europa.eu", "name": "Europol", "level": 2},
+  {"domain": "dubaifuture.ae", "name": "Dubai Future Foundation", "level": 4},
+  {"domain": "worldgovernmentsummit.org", "name": "World Government Summit", "level": 4}
+]
