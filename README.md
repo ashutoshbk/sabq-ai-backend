@@ -5,7 +5,7 @@ AI backend for the Sabq Smart Platform proof of concept. It gives the backend de
 | Feature | Endpoint | Front-end page |
 |---|---|---|
 | Chatbot (guard-railed, no internal data, English only) | `POST /chat`, `POST /chat/stream`, `GET /chat/quick-questions` | Sabq AI |
-| Top 3 live news / trends with original links | `GET /trends` | Horizon Scan, Global Trends tab |
+| Top 3 live news / trends with original links, refreshed once a day | `GET /trends` | Horizon Scan, Global Trends tab |
 
 Built with FastAPI and the OpenAI Responses API. No database, no login, no Docker. Interactive API docs (the handover document) are generated automatically at `/docs`.
 
@@ -32,14 +32,14 @@ sabq-ai-backend/
 │   ├── prompts/
 │   │   ├── chat_system.md       # persona, scope, guardrails
 │   │   └── trends_search.md     # what to search for, output format
-│   ├── core/                # config, OpenAI client, cache, error handling, file loading
+│   ├── core/                # config, OpenAI client, cache, daily scheduler, error handling, file loading
 │   └── resources/
 │       ├── allowed_domains.json # trusted news domains (from Sources & References)
 │       └── quick_questions.json # the 3 fixed quick questions
 ├── scripts/
 │   ├── check_env.py         # step 1: is the environment ready (offline)
 │   └── smoke_test.py        # step 5: try every endpoint with the real key
-└── tests/                   # 50 tests, OpenAI is mocked, no key needed
+└── tests/                   # 64 tests, OpenAI is mocked, no key needed
 ```
 
 Prompts, the domain list and the quick questions are plain files. You can change them without touching Python.
@@ -73,8 +73,8 @@ Note: `--reload` restarts the server when `.py` files change, but **not** when y
 Do these in order. If a step fails, fix it before moving on.
 
 1. **Environment**: `python scripts/check_env.py`. Expect all `[ OK ]`, including the API key line.
-2. **Unit tests** (no key, no cost): `pytest`. Expect `50 passed`.
-3. **Start the server**, then open `/health`. Expect `"status": "ok"` and `"openai_key_configured": true`.
+2. **Unit tests** (no key, no cost): `pytest`. Expect `64 passed`.
+3. **Start the server**, then open `/health`. Expect `"status": "ok"`, `"openai_key_configured": true`, and a `trends_refresh` block showing the daily refresh time and the next run.
 4. **Key and models**: open `/health/openai`. Expect `"status": "ok"` with both models `"ok": true`. This only looks the models up, so it costs nothing. If a model is missing, change `CHAT_MODEL` or `TRENDS_MODEL` (see Troubleshooting).
 5. **Full smoke test** (second terminal, server still running): `python scripts/smoke_test.py` (add `--skip-trends` to skip the news call). It prints every chat answer so you can judge the guardrails yourself.
 
@@ -104,12 +104,29 @@ Guardrails are enforced by the system prompt (`app/prompts/chat_system.md`). Tha
 ### What to expect from `/trends`
 
 - `count` is 3. Each card has `title`, `summary`, `category`, `timeframe`, `source_name`, `source_url`.
-- The first call runs a live web search and takes roughly 5 to 90 seconds. The next call returns instantly with `"cached": true`. `?refresh=true` forces a fresh search (and a new search charge).
-- Results change between fresh calls. That is expected.
+- Once the daily refresh has run (see the next section), every call returns instantly with `"cached": true`. Only if the cache is empty (for example just after a restart, before the next refresh) does a call run a live web search, which takes roughly 5 to 90 seconds. `?refresh=true` forces a fresh search (and a new search charge); do not wire it to a page load.
+- Results change between fresh searches. That is expected.
 - **Open every `source_url`.** The page should exist and match the summary. Some sites (for example INTERPOL) answer scripts with 403 but open fine in a browser.
 - Every link's host is on the allowed list (`app/resources/allowed_domains.json`), and tracking parameters (`utm_*`, `trk`, `fbclid`, `gclid` and similar) are removed from links.
 
 How the links are kept honest: the model writes titles and summaries, but a card is kept only if its URL was actually cited by the search tool and sits on an allowed domain. The source name comes from our own domain list. Cards that fail are dropped and the search is retried once. If fewer than 3 survive, the response returns what it has plus a `warning`; if none survive it returns a 502.
+
+## Daily news refresh
+
+The service refreshes the news feed by itself once a day at a fixed time, so the front-end always gets an instant answer. It is built into the server: no extra scheduler or cron job is needed.
+
+- **When:** `TRENDS_REFRESH_TIME` (24-hour `HH:MM`, default `06:00`) in `TRENDS_REFRESH_TIMEZONE` (default `Asia/Dubai`).
+- **What it does:** runs one web search, validates the cards, and replaces the cached result. Cost is one search plus a few thousand tokens per day.
+- **If a refresh fails** (network, quota), the previous result stays in use and it retries every 30 minutes, up to 3 more times. The failure is logged and shown in `/health`.
+- **Check it:** `GET /health` shows `trends_refresh` with `time`, `timezone`, `next_run`, `last_run` and `last_result` (`ok` or the error).
+- **Cache lifetime:** while the daily refresh is on, the cache is kept for at least 26 hours, so it never expires between refreshes.
+- **Warm start:** set `TRENDS_REFRESH_ON_STARTUP=true` to also fetch once every time the server starts. The default is off.
+- **Turn it off:** `TRENDS_DAILY_REFRESH_ENABLED=false`. News is then fetched on demand and cached for `TRENDS_CACHE_TTL_MINUTES`.
+
+Things to know:
+- The server process must be running at the refresh time. If it was off, nothing runs, and the first `/trends` call after it starts does a live search.
+- The cache and the schedule live inside one process. With several workers or servers, each has its own cache and runs its own refresh, which multiplies the daily cost. Run one worker for this POC, or call `GET /trends?refresh=true` once a day from an external scheduler instead and set `TRENDS_DAILY_REFRESH_ENABLED=false`.
+- On Windows the time zone database is not built in. `requirements.txt` includes `tzdata` for this. Without it, `Asia/Dubai` falls back to a fixed UTC+4 and other zones fall back to UTC, with a warning in the log.
 
 ## API reference
 
@@ -200,7 +217,7 @@ Returns the three fixed questions: `{"questions": ["...", "...", "..."]}`. The w
 
 ### `GET /health` and `GET /health/openai`
 
-Service status, and a no-cost check that the key works and both models exist.
+`/health`: service status, whether a key is configured, and the daily refresh status (`trends_refresh`). `/health/openai`: a no-cost check that the key works and both models exist.
 
 ### Errors
 
@@ -238,7 +255,11 @@ All settings are environment variables (or `.env`). See `.env.example`.
 | `CHAT_MAX_OUTPUT_TOKENS` | 1500 | Reasoning models count hidden thinking tokens here too |
 | `TRENDS_MAX_OUTPUT_TOKENS` | 4000 | Same |
 | `TRENDS_COUNT` | 3 | Number of news cards |
-| `TRENDS_CACHE_TTL_MINUTES` | 360 | In-memory cache, resets on restart. 0 disables caching |
+| `TRENDS_CACHE_TTL_MINUTES` | 360 | In-memory cache, resets on restart. 0 disables caching. Raised to at least 26 hours while the daily refresh is on |
+| `TRENDS_DAILY_REFRESH_ENABLED` | `true` | Built-in daily news refresh |
+| `TRENDS_REFRESH_TIME` | `06:00` | `HH:MM`, 24-hour clock |
+| `TRENDS_REFRESH_TIMEZONE` | `Asia/Dubai` | IANA time zone name |
+| `TRENDS_REFRESH_ON_STARTUP` | `false` | Also fetch once at every server start |
 | `OPENAI_TIMEOUT_SECONDS` | 90 | |
 | `ALLOWED_ORIGINS` | `*` | CORS origins |
 | `LOG_LEVEL` | `INFO` | The server log shows `Trends attempt` and `Dropped card` lines that explain news results |
@@ -259,6 +280,8 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - **`/trends` returns `no_valid_trends`**: the search found nothing citable on the allowed domains. Call again, or add more trusted domains. The server log says why cards were dropped.
 - **A script cannot reach the server (`ConnectError`)**: the server is not running. Keep one terminal running `uvicorn` and use a second terminal for tests.
 - **Key set in conda but the server says it is missing**: set it in the same shell that runs `uvicorn`, or put it in `.env`. Check `/health`.
+- **The daily refresh did not run**: check `/health` for `trends_refresh.last_result` and the server log for `News refresh` lines. The server must have been running at the scheduled time, in the time zone you set.
+- **Log says "Time zone database not found"**: run `pip install tzdata` in your environment.
 - **Edited a prompt but nothing changed**: restart the server. `--reload` does not watch `.md` or `.json` files.
 - **Windows and curl**: use `curl.exe` (not the PowerShell `curl` alias) and escape inner quotes as `\"`, or use `/docs` or `scripts/smoke_test.py`.
 - **Garbled characters in a Windows console**: curly quotes in model replies can display oddly in old consoles. The API itself returns valid UTF-8.
@@ -266,7 +289,7 @@ All settings are environment variables (or `.env`). See `.env.example`.
 ## Known limitations (POC)
 
 - News is AI-summarized from web search. Always keep the source link visible and the AI-generated label shown.
-- The cache is in memory and per process. It resets on restart and is not shared between workers.
+- The cache and the daily refresh live inside one server process. They reset on restart, are not shared between workers, and do not run while the server is off.
 - Chat guardrails are prompt-based. There is no separate moderation layer.
 - English only. A message in another language gets an English answer.
 - No authentication, rate limiting or persistence. Those belong to the backend developer.

@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.core.config import Settings, get_settings
 from app.core.openai_client import get_openai_client
@@ -9,12 +9,14 @@ router = APIRouter(prefix="/health", tags=["Health"])
 
 
 @router.get("", summary="Is the service up, and is an API key configured?")
-async def health(settings: Settings = Depends(get_settings)):
+async def health(request: Request, settings: Settings = Depends(get_settings)):
+    refresher = getattr(request.app.state, "trends_refresher", None)
     return {
         "status": "ok",
         "openai_key_configured": bool(settings.openai_api_key or os.getenv("OPENAI_API_KEY")),
         "chat_model": settings.chat_model,
         "trends_model": settings.trends_model,
+        "trends_refresh": refresher.status() if refresher else {"enabled": False},
     }
 
 

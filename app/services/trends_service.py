@@ -55,7 +55,7 @@ class TrendsService:
         self._domains = domains
         self._template = Template(prompt_template or load_prompt("trends_search.md"))
         self._cache: SingleValueTTLCache[TrendsResponse] = SingleValueTTLCache(
-            ttl_seconds=settings.trends_cache_ttl_minutes * 60, clock=clock
+            ttl_seconds=settings.effective_cache_ttl_minutes * 60, clock=clock
         )
         self._lock = asyncio.Lock()
 

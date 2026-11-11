@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 from types import SimpleNamespace
+
+# Tests must never start the real daily refresh (it would call OpenAI).
+os.environ["TRENDS_DAILY_REFRESH_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient
