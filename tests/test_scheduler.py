@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.config import Settings, get_settings
-from app.core.scheduler import DailyRefresher, next_run_after, resolve_timezone
+from app.core.scheduler import ScheduledRefresher, next_run_after, resolve_timezone
 
 TZ = timezone(timedelta(hours=4))
 
@@ -28,10 +28,10 @@ class Clock:
 
 
 def make_refresher(refresh, clock, **kw):
-    return DailyRefresher(refresh, 6, 0, TZ, "Asia/Dubai", now_fn=clock.now, sleep=clock.sleep, **kw)
+    return ScheduledRefresher(refresh, 6, 0, TZ, "Asia/Dubai", now_fn=clock.now, sleep=clock.sleep, **kw)
 
 
-# ---- time maths ---------------------------------------------------------
+# ---- time maths: daily --------------------------------------------------
 
 def test_next_run_later_today():
     now = datetime(2026, 11, 11, 5, 0, tzinfo=TZ)
@@ -51,6 +51,28 @@ def test_next_run_exactly_at_the_time_means_tomorrow():
 def test_month_rollover():
     now = datetime(2026, 11, 30, 23, 0, tzinfo=TZ)
     assert next_run_after(now, 6, 0) == datetime(2026, 12, 1, 6, 0, tzinfo=TZ)
+
+
+# ---- time maths: weekly (2026-11-11 is a Wednesday, Monday = 0) ---------
+
+def test_weekly_goes_to_the_next_monday():
+    now = datetime(2026, 11, 11, 10, 0, tzinfo=TZ)
+    assert next_run_after(now, 6, 0, weekday=0) == datetime(2026, 11, 16, 6, 0, tzinfo=TZ)
+
+
+def test_weekly_same_day_if_the_time_has_not_come():
+    now = datetime(2026, 11, 16, 5, 0, tzinfo=TZ)  # a Monday
+    assert next_run_after(now, 6, 0, weekday=0) == datetime(2026, 11, 16, 6, 0, tzinfo=TZ)
+
+
+def test_weekly_next_week_if_the_time_has_passed():
+    now = datetime(2026, 11, 16, 7, 0, tzinfo=TZ)  # a Monday
+    assert next_run_after(now, 6, 0, weekday=0) == datetime(2026, 11, 23, 6, 0, tzinfo=TZ)
+
+
+def test_weekly_on_the_same_weekday_as_today_wednesday():
+    now = datetime(2026, 11, 11, 10, 0, tzinfo=TZ)  # Wednesday after the time
+    assert next_run_after(now, 6, 0, weekday=2) == datetime(2026, 11, 18, 6, 0, tzinfo=TZ)
 
 
 def test_resolve_timezone():
@@ -84,6 +106,28 @@ def test_waits_for_the_time_then_refreshes_once():
     assert r.last_result == "ok"
     assert r.next_run == datetime(2026, 11, 12, 6, 0, tzinfo=TZ)
     assert max(clock.sleeps) <= 60
+
+
+def test_weekly_refresher_waits_for_its_day():
+    clock = Clock(datetime(2026, 11, 15, 23, 0, tzinfo=TZ))  # Sunday night
+    done, calls = asyncio.Event(), []
+
+    async def refresh():
+        calls.append(clock.now())
+        done.set()
+
+    async def scenario():
+        r = make_refresher(refresh, clock, weekday=0)  # Monday 06:00
+        task = asyncio.create_task(r.run())
+        await asyncio.wait_for(done.wait(), 5)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        return r
+
+    r = asyncio.run(scenario())
+    assert calls[0].date() == datetime(2026, 11, 16).date()
+    assert r.next_run == datetime(2026, 11, 23, 6, 0, tzinfo=TZ)
 
 
 def test_refreshes_immediately_on_startup_when_asked():
@@ -137,11 +181,13 @@ def test_gives_up_after_max_retries_and_keeps_going():
 
 def test_status_shape():
     clock = Clock(datetime(2026, 11, 11, 6, 0, tzinfo=TZ))
-    status = make_refresher(lambda: None, clock).status()
-    assert status["enabled"] is True
-    assert status["time"] == "06:00"
-    assert status["timezone"] == "Asia/Dubai"
-    assert status["next_run"] is None and status["last_run"] is None
+    daily = make_refresher(lambda: None, clock).status()
+    assert daily["enabled"] is True and daily["frequency"] == "daily" and daily["day"] is None
+    assert daily["time"] == "06:00" and daily["timezone"] == "Asia/Dubai"
+    assert daily["next_run"] is None and daily["last_run"] is None
+
+    weekly = make_refresher(lambda: None, clock, weekday=0).status()
+    assert weekly["frequency"] == "weekly" and weekly["day"] == "monday"
 
 
 # ---- settings -----------------------------------------------------------
@@ -153,11 +199,25 @@ def test_refresh_time_is_validated_and_normalised():
             Settings(_env_file=None, trends_refresh_time=bad)
 
 
-def test_cache_outlives_a_day_when_daily_refresh_is_on():
-    on = Settings(_env_file=None, trends_daily_refresh_enabled=True, trends_cache_ttl_minutes=360)
-    off = Settings(_env_file=None, trends_daily_refresh_enabled=False, trends_cache_ttl_minutes=360)
-    disabled = Settings(_env_file=None, trends_daily_refresh_enabled=True, trends_cache_ttl_minutes=0)
-    assert on.effective_cache_ttl_minutes == 26 * 60
+def test_frequency_and_day_are_validated():
+    s = Settings(_env_file=None, trends_refresh_frequency="Weekly", trends_refresh_day="Fri")
+    assert s.trends_refresh_frequency == "weekly" and s.trends_refresh_day == "friday"
+    assert s.refresh_weekday == 4
+    assert Settings(_env_file=None, trends_refresh_frequency="daily").refresh_weekday is None
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, trends_refresh_frequency="monthly")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, trends_refresh_day="someday")
+
+
+def test_results_stay_fresh_for_a_whole_refresh_period():
+    base = dict(_env_file=None, trends_cache_ttl_minutes=360)
+    weekly = Settings(**base, trends_auto_refresh_enabled=True, trends_refresh_frequency="weekly")
+    daily = Settings(**base, trends_auto_refresh_enabled=True, trends_refresh_frequency="daily")
+    off = Settings(**base, trends_auto_refresh_enabled=False)
+    disabled = Settings(_env_file=None, trends_auto_refresh_enabled=True, trends_cache_ttl_minutes=0)
+    assert weekly.effective_cache_ttl_minutes == 7 * 1440 + 120
+    assert daily.effective_cache_ttl_minutes == 1440 + 120
     assert off.effective_cache_ttl_minutes == 360
     assert disabled.effective_cache_ttl_minutes == 0
 
@@ -167,7 +227,9 @@ def test_cache_outlives_a_day_when_daily_refresh_is_on():
 def test_app_starts_and_stops_the_scheduler(monkeypatch):
     from app.main import create_app
 
-    monkeypatch.setenv("TRENDS_DAILY_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("TRENDS_AUTO_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("TRENDS_REFRESH_FREQUENCY", "weekly")
+    monkeypatch.setenv("TRENDS_REFRESH_DAY", "friday")
     monkeypatch.setenv("TRENDS_REFRESH_TIME", "07:30")
     monkeypatch.setenv("TRENDS_REFRESH_ON_STARTUP", "false")
     get_settings.cache_clear()
@@ -175,8 +237,8 @@ def test_app_starts_and_stops_the_scheduler(monkeypatch):
         with TestClient(create_app()) as client:
             info = client.get("/health").json()["trends_refresh"]
         assert info["enabled"] is True
-        assert info["time"] == "07:30"
-        assert info["timezone"] == "Asia/Dubai"
+        assert info["frequency"] == "weekly" and info["day"] == "friday"
+        assert info["time"] == "07:30" and info["timezone"] == "Asia/Dubai"
     finally:
         get_settings.cache_clear()
 

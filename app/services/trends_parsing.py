@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -34,7 +35,6 @@ CATEGORIES = [
     "Performance Indicators",
     "Global Competitiveness",
 ]
-TIMEFRAMES = ["Under 1 year", "1-2 years", "2-3 years", "3-5 years", "5+ years"]
 
 MAX_SUMMARY_CHARS = 400
 MAX_TITLE_CHARS = 160
@@ -119,7 +119,7 @@ def parse_cards_json(text: str) -> list[dict]:
                 data = None
 
     if isinstance(data, dict):
-        data = data.get("trends")
+        data = data.get("items") if "items" in data else data.get("trends")
     if not isinstance(data, list):
         return []
     return [item for item in data if isinstance(item, dict)]
@@ -139,3 +139,31 @@ def shorten(value: Any, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"
+
+
+_DATE_RE = re.compile(r"^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?(?:[T ].*)?$")
+
+
+def normalize_date(value: Any, today: date) -> str | None:
+    """Accept YYYY, YYYY-MM or YYYY-MM-DD (optionally followed by a time).
+
+    Returns the cleaned text, or None when it is missing, malformed, from before 2000,
+    or in the future (a model mistake). Dates are never invented here.
+    """
+    match = _DATE_RE.match(str(value or "").strip())
+    if not match:
+        return None
+    year = int(match.group(1))
+    month = int(match.group(2)) if match.group(2) else None
+    day = int(match.group(3)) if match.group(3) else None
+    try:
+        probe = date(year, month or 1, day or 1)
+    except ValueError:
+        return None
+    if year < 2000 or probe > today:
+        return None
+    if month is None:
+        return f"{year:04d}"
+    if day is None:
+        return f"{year:04d}-{month:02d}"
+    return f"{year:04d}-{month:02d}-{day:02d}"

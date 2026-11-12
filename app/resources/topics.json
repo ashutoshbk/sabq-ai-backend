@@ -1,0 +1,27 @@
+[
+  {
+    "slug": "predictive-policing",
+    "name": "Predictive Policing",
+    "focus": "data-driven forecasting of where and when crime or incidents are likely to occur, hotspot and risk-terrain modelling, and evaluations of how effective and fair these methods are"
+  },
+  {
+    "slug": "ai-policing",
+    "name": "AI Policing",
+    "focus": "artificial intelligence and machine learning in law enforcement: governance and ethics frameworks, operational use cases, generative AI, and public-sector AI adoption"
+  },
+  {
+    "slug": "digital-twin",
+    "name": "Digital Twin",
+    "focus": "digital twins and simulation for cities, emergency response, security operations and public safety, including scenario modelling and strategic foresight"
+  },
+  {
+    "slug": "autonomous-surveillance",
+    "name": "Autonomous Surveillance",
+    "focus": "drones, robots, autonomous patrol and AI-enabled video analytics for public safety, with attention to effectiveness, oversight and privacy"
+  },
+  {
+    "slug": "smart-investigation",
+    "name": "Smart Investigation",
+    "focus": "data and AI-driven investigation: digital forensics, e-evidence, evidence analysis, image and video analytics, and cybercrime investigation"
+  }
+]

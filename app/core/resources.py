@@ -19,6 +19,18 @@ class DomainEntry(BaseModel):
     level: int
 
 
+class Topic(BaseModel):
+    slug: str
+    name: str
+    focus: str
+
+
+@lru_cache
+def load_topics() -> list[Topic]:
+    data = json.loads((RESOURCES_DIR / "topics.json").read_text(encoding="utf-8"))
+    return [Topic(**item) for item in data]
+
+
 @lru_cache
 def load_prompt(filename: str) -> str:
     return (PROMPTS_DIR / filename).read_text(encoding="utf-8").strip()

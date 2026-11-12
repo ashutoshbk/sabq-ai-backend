@@ -2,8 +2,10 @@
 
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
 
 class Settings(BaseSettings):
@@ -19,18 +21,23 @@ class Settings(BaseSettings):
     reasoning_effort: str | None = None
 
     chat_max_output_tokens: int = 1500
-    trends_max_output_tokens: int = 4000
+    trends_max_output_tokens: int = 8000
 
-    trends_count: int = 3
-    trends_cache_ttl_minutes: int = 360
+    # Research feed
+    trends_per_topic: int = Field(default=10, ge=1, le=30)
+    trends_search_concurrency: int = Field(default=3, ge=1, le=10)
+    trends_store_path: str = "data/trends_store.json"  # empty = do not save to a file
+    trends_cache_ttl_minutes: int = 1440
 
-    # Built-in daily refresh of the news feed
-    trends_daily_refresh_enabled: bool = True
+    # Automatic refresh of the research feed
+    trends_auto_refresh_enabled: bool = True
+    trends_refresh_frequency: str = "weekly"  # daily | weekly
+    trends_refresh_day: str = "monday"  # used when weekly
     trends_refresh_time: str = "06:00"  # HH:MM, 24-hour clock
     trends_refresh_timezone: str = "Asia/Dubai"
     trends_refresh_on_startup: bool = False
 
-    openai_timeout_seconds: float = 90.0
+    openai_timeout_seconds: float = 180.0
 
     allowed_origins: str = "*"
     log_level: str = "INFO"
@@ -48,19 +55,47 @@ class Settings(BaseSettings):
             raise ValueError(message)
         return f"{hour:02d}:{minute:02d}"
 
+    @field_validator("trends_refresh_frequency")
+    @classmethod
+    def _check_frequency(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in ("daily", "weekly"):
+            raise ValueError("TRENDS_REFRESH_FREQUENCY must be daily or weekly")
+        return value
+
+    @field_validator("trends_refresh_day")
+    @classmethod
+    def _check_day(cls, value: str) -> str:
+        value = value.strip().lower()
+        for day in DAYS:
+            if value == day or value == day[:3]:
+                return day
+        raise ValueError("TRENDS_REFRESH_DAY must be a weekday name, for example monday")
+
     @property
     def refresh_hour_minute(self) -> tuple[int, int]:
         hour, minute = self.trends_refresh_time.split(":")
         return int(hour), int(minute)
 
     @property
+    def refresh_weekday(self) -> int | None:
+        """0 = Monday ... 6 = Sunday for weekly refresh, None for daily."""
+        if self.trends_refresh_frequency == "daily":
+            return None
+        return DAYS.index(self.trends_refresh_day)
+
+    @property
     def effective_cache_ttl_minutes(self) -> int:
-        """With a daily refresh on, the cache must outlive 24 hours, or it would expire
-        before the next refresh and make a visitor wait for a live search."""
+        """How long saved results count as fresh.
+
+        With automatic refresh on, results must outlive one refresh period (plus 2 hours),
+        or they would be called stale before the next refresh and a visitor would wait
+        for a live search."""
         ttl = self.trends_cache_ttl_minutes
-        if ttl <= 0 or not self.trends_daily_refresh_enabled:
+        if ttl <= 0 or not self.trends_auto_refresh_enabled:
             return ttl
-        return max(ttl, 26 * 60)
+        period = 1440 if self.trends_refresh_frequency == "daily" else 7 * 1440
+        return max(ttl, period + 120)
 
     @property
     def cors_origins(self) -> list[str]:

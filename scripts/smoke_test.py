@@ -5,7 +5,7 @@ Start the server first (in another terminal):
 
 Then:
     python scripts/smoke_test.py                 # everything
-    python scripts/smoke_test.py --skip-trends   # skip the slower, pricier news call
+    python scripts/smoke_test.py --skip-trends   # skip the slower, pricier research call
     python scripts/smoke_test.py --base-url http://127.0.0.1:8000
 
 Chat answers are printed so YOU can judge the guardrails (the model's wording varies).
@@ -22,7 +22,7 @@ parser.add_argument("--base-url", default="http://127.0.0.1:8000")
 parser.add_argument("--skip-trends", action="store_true")
 args = parser.parse_args()
 
-http = httpx.Client(base_url=args.base_url, timeout=180)
+http = httpx.Client(base_url=args.base_url, timeout=600)
 failures = 0
 
 
@@ -109,22 +109,26 @@ check(r.status_code == 422 and r.json()["error"]["code"] == "invalid_request", "
 if args.skip_trends:
     print("\n(skipped trends)")
 else:
-    title("9. Trends (live web search, may take 20-90 seconds)")
+    title("9. Trends: research on five topics (live web search, may take a few minutes)")
+    r = http.get("/trends/topics")
+    slugs = [t["slug"] for t in r.json()] if r.status_code == 200 else r.text[:200]
+    check(r.status_code == 200 and len(slugs) == 5, f"/trends/topics -> {slugs}")
     r = http.get("/trends?refresh=true")
     if r.status_code != 200:
         check(False, f"/trends returned {r.status_code}: {r.text[:400]}")
     else:
         data = r.json()
-        check(data["count"] == 3, f"{data['count']} cards (warning: {data.get('warning')})")
-        for card in data["trends"]:
-            host = urlsplit(card["source_url"]).hostname
-            print(f"  #{card['id']} {card['title']}")
-            print(f"     {card['category']} | {card['timeframe']} | {card['source_name']}")
-            print(f"     {card['summary']}")
-            print(f"     {card['source_url']}  (host: {host})\n")
-        print("  >> Open each link in a browser to confirm the page exists and matches the summary.")
+        check(len(data["topics"]) == 5, f"{len(data['topics'])} topics, {data['total']} items in total (warning: {data.get('warning')})")
+        for topic in data["topics"]:
+            print(f"\n  == {topic['name']}: {topic['count']} items (new: {topic['new_in_last_refresh']})  warning: {topic['warning']}")
+            for item in topic["items"]:
+                host = urlsplit(item["source_url"]).hostname
+                print(f"   - {item['title']}")
+                print(f"     {item['category']} | {item['published_date']} | {item['source_name']}")
+                print(f"     {item['source_url']}  (host: {host})")
+        print("\n  >> Open a few links in a browser to confirm the page exists and matches the summary.")
         again = http.get("/trends").json()
-        check(again["cached"] is True, "second call is served from cache")
+        check(again["cached"] is True, "second call is served without a new search")
 
 print(f"\n{'ALL AUTOMATED CHECKS PASSED' if failures == 0 else str(failures) + ' CHECK(S) FAILED'}")
 sys.exit(1 if failures else 0)

@@ -6,15 +6,17 @@ import json
 import os
 from types import SimpleNamespace
 
-# Tests must never start the real daily refresh (it would call OpenAI).
-os.environ["TRENDS_DAILY_REFRESH_ENABLED"] = "false"
+# Tests must never start the real automatic refresh (it would call OpenAI)
+# and must never write the results file.
+os.environ["TRENDS_AUTO_REFRESH_ENABLED"] = "false"
+os.environ["TRENDS_STORE_PATH"] = ""
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_chat_service, get_trends_service
 from app.core.config import Settings
-from app.core.resources import load_allowed_domains
+from app.core.resources import load_allowed_domains, load_topics
 from app.main import create_app
 from app.services.chat_service import ChatService
 from app.services.trends_service import TrendsService
@@ -54,9 +56,12 @@ class FakeResponses:
     def __init__(self):
         self.calls: list[dict] = []
         self.queue: list = []
+        self.handler = None  # optional: a function(kwargs) -> response (it may raise)
 
     async def create(self, **kwargs):
         self.calls.append(kwargs)
+        if self.handler is not None:
+            return self.handler(kwargs)
         if not self.queue:
             raise AssertionError("FakeResponses queue is empty")
         return self.queue.pop(0)
@@ -74,15 +79,15 @@ def make_settings(**overrides) -> Settings:
 
 
 def trends_json(*items: dict) -> str:
-    return json.dumps({"trends": list(items)})
+    return json.dumps({"items": list(items)})
 
 
-def trend_item(url: str, title: str = "A trend", **extra) -> dict:
+def trend_item(url: str, title: str = "A study", **extra) -> dict:
     item = {
         "title": title,
         "summary": "A short summary in the model's own words.",
         "category": "Strategic Thinking",
-        "timeframe": "1-2 years",
+        "published_date": "2026-03-15",
         "source_url": url,
     }
     item.update(extra)
@@ -99,10 +104,12 @@ def make_client(fake_client):
     """Returns a (TestClient, FakeClient, chat_service, trends_service) bundle factory."""
     clients = []
 
-    def _make(**settings_overrides):
+    def _make(store=None, now_fn=None, **settings_overrides):
         settings = make_settings(**settings_overrides)
         chat = ChatService(fake_client, settings)
-        trends = TrendsService(fake_client, settings, load_allowed_domains())
+        trends = TrendsService(
+            fake_client, settings, load_allowed_domains(), load_topics(), store=store, now_fn=now_fn
+        )
         app = create_app()
         app.dependency_overrides[get_chat_service] = lambda: chat
         app.dependency_overrides[get_trends_service] = lambda: trends

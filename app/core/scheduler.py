@@ -1,12 +1,13 @@
-"""Runs one job every day at a fixed wall-clock time (used to refresh the news feed).
+"""Runs one job on a schedule: every day, or once a week, at a fixed wall-clock time.
 
 It lives inside the server process, so the server must be running at that time.
-If the refresh fails it keeps the previous cached result and retries a few times.
+If the job fails it retries a few times; the previous results stay in use meanwhile.
 """
 
 from __future__ import annotations
 
 import asyncio
+import calendar
 import logging
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Awaitable, Callable
@@ -31,15 +32,23 @@ def resolve_timezone(name: str) -> tzinfo:
         return timezone.utc
 
 
-def next_run_after(now: datetime, hour: int, minute: int) -> datetime:
-    """The next occurrence of hour:minute strictly after `now` (same time zone as `now`)."""
+def next_run_after(now: datetime, hour: int, minute: int, weekday: int | None = None) -> datetime:
+    """The next occurrence of hour:minute strictly after `now`.
+
+    weekday None = every day. 0 = Monday ... 6 = Sunday = once a week on that day.
+    """
     candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if weekday is None:
+        if candidate <= now:
+            candidate += timedelta(days=1)
+        return candidate
+    candidate += timedelta(days=(weekday - candidate.weekday()) % 7)
     if candidate <= now:
-        candidate += timedelta(days=1)
+        candidate += timedelta(days=7)
     return candidate
 
 
-class DailyRefresher:
+class ScheduledRefresher:
     def __init__(
         self,
         refresh: Callable[[], Awaitable[object]],
@@ -47,6 +56,7 @@ class DailyRefresher:
         minute: int,
         tz: tzinfo,
         tz_name: str,
+        weekday: int | None = None,
         run_on_startup: bool = False,
         retry_minutes: int = 30,
         max_retries: int = 3,
@@ -55,6 +65,7 @@ class DailyRefresher:
     ):
         self._refresh = refresh
         self.hour, self.minute = hour, minute
+        self.weekday = weekday
         self.tz_name = tz_name
         self._run_on_startup = run_on_startup
         self._retry_minutes = retry_minutes
@@ -72,6 +83,8 @@ class DailyRefresher:
 
         return {
             "enabled": True,
+            "frequency": "daily" if self.weekday is None else "weekly",
+            "day": None if self.weekday is None else calendar.day_name[self.weekday].lower(),
             "time": f"{self.hour:02d}:{self.minute:02d}",
             "timezone": self.tz_name,
             "next_run": iso(self.next_run),
@@ -83,9 +96,9 @@ class DailyRefresher:
         if self._run_on_startup:
             await self._refresh_with_retries()
         while True:
-            target = next_run_after(self._now(), self.hour, self.minute)
+            target = next_run_after(self._now(), self.hour, self.minute, self.weekday)
             self.next_run = target
-            logger.info("Next news refresh at %s", target.isoformat(timespec="minutes"))
+            logger.info("Next research refresh at %s", target.isoformat(timespec="minutes"))
             await self._wait_until(target)
             await self._refresh_with_retries()
 
@@ -107,13 +120,13 @@ class DailyRefresher:
             except Exception as exc:  # noqa: BLE001 - the loop must never die
                 self.last_run = self._now()
                 self.last_result = f"failed: {type(exc).__name__}: {exc}"[:200]
-                logger.warning("News refresh failed (attempt %d/%d): %s", attempt, attempts, exc)
+                logger.warning("Research refresh failed (attempt %d/%d): %s", attempt, attempts, exc)
                 if attempt < attempts:
                     await self._sleep(self._retry_minutes * 60)
             else:
                 self.last_run = self._now()
                 self.last_result = "ok"
-                logger.info("News refresh done")
+                logger.info("Research refresh done")
                 return True
-        logger.error("News refresh gave up; the previous cached result stays in use")
+        logger.error("Research refresh gave up; the previous results stay in use")
         return False

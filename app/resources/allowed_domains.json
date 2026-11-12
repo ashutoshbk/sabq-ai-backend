@@ -10,5 +10,12 @@
   {"domain": "interpol.int", "name": "INTERPOL", "level": 2},
   {"domain": "europol.europa.eu", "name": "Europol", "level": 2},
   {"domain": "dubaifuture.ae", "name": "Dubai Future Foundation", "level": 4},
-  {"domain": "worldgovernmentsummit.org", "name": "World Government Summit", "level": 4}
+  {"domain": "worldgovernmentsummit.org", "name": "World Government Summit", "level": 4},
+  {"domain": "iacp.org", "name": "International Association of Chiefs of Police (IACP)", "level": 5},
+  {"domain": "rand.org", "name": "RAND Corporation", "level": 5},
+  {"domain": "ojp.gov", "name": "Office of Justice Programs (US Department of Justice)", "level": 5},
+  {"domain": "college.police.uk", "name": "College of Policing (UK)", "level": 5},
+  {"domain": "gov.uk", "name": "UK Government", "level": 5},
+  {"domain": "turing.ac.uk", "name": "The Alan Turing Institute", "level": 5},
+  {"domain": "arxiv.org", "name": "arXiv (research papers)", "level": 5}
 ]
