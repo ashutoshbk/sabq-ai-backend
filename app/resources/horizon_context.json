@@ -1,0 +1,23 @@
+{
+  "predictive-policing": {
+    "linked_process": "Strategic Monitoring",
+    "strategic_gap_percent": 8,
+    "adoption_probability_percent": 94,
+    "expected_horizon": "1-2 years",
+    "platform_note": "Leading security agencies are adopting predictive policing that uses AI and big-data analysis to anticipate crime. Applied in Singapore and the United Kingdom. Linked to strengthening follow-up and smart monitoring."
+  },
+  "ai-policing": {
+    "linked_process": "Strategic Thinking",
+    "strategic_gap_percent": 13,
+    "adoption_probability_percent": 91,
+    "expected_horizon": "1-3 years",
+    "platform_note": "AI is reshaping security operations from planning to execution: identifying suspects, analyzing crimes and managing human resources. Europol leads AI initiatives in Europe. Linked to foresight capability and forecasting accuracy."
+  },
+  "digital-twin": {
+    "linked_process": "Policies",
+    "strategic_gap_percent": 12,
+    "adoption_probability_percent": 82,
+    "expected_horizon": "2-3 years",
+    "platform_note": "A digital twin of security systems can simulate new security policies and scenarios in a virtual environment before real-world implementation. UNODC uses it to model counter-crime strategies."
+  }
+}

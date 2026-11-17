@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     trends_refresh_timezone: str = "Asia/Dubai"
     trends_refresh_on_startup: bool = False
 
+    # Horizon Scanning Agent: reads the stored research items and writes scored trend cards.
+    horizon_model: str = "gpt-5.4-mini"
+    horizon_max_output_tokens: int = 6000
+    horizon_cards_per_topic: int = Field(default=5, ge=1, le=10)  # most trend cards per topic
+    horizon_max_age_months: int = Field(default=24, ge=1, le=60)  # older dated sources are ignored
+    horizon_store_path: str = "data/horizon_store.json"  # empty = do not save to a file
+    horizon_auto_run_after_refresh: bool = True  # run the agent after each automatic research refresh
+    horizon_max_questions: int = Field(default=2, ge=0, le=5)  # clarifying questions before it just runs
+
     openai_timeout_seconds: float = 180.0
 
     allowed_origins: str = "*"

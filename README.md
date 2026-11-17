@@ -1,11 +1,12 @@
 # Sabq AI Backend (POC)
 
-AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer two things to plug into the existing front-end:
+AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer three things to plug into the existing front-end:
 
 | Feature | Endpoint | Front-end page |
 |---|---|---|
 | Chatbot (guard-railed, no internal data, English only) | `POST /chat`, `POST /chat/stream`, `GET /chat/quick-questions` | Sabq AI |
 | Research on five global trends, up to 10 items per topic, with original links, refreshed daily or weekly | `GET /trends`, `GET /trends/topics` | Horizon Scan, Global Trends tab |
+| **Horizon Scanning Agent**: reads that research and writes scored trend cards (impact, time-to-adopt, relevance, "so what for Dubai Police"). On demand it talks to the user first | `GET /agents/horizon`, `POST /agents/horizon/chat` | Horizon Scan, Global Trends tab |
 
 The five trend topics come from the prototype: Predictive Policing, AI Policing, Digital Twin, Autonomous Surveillance, Smart Investigation.
 
@@ -24,26 +25,32 @@ sabq-ai-backend/
 │   ├── api/                 # HTTP layer only
 │   │   ├── chat.py          #   POST /chat, POST /chat/stream, GET /chat/quick-questions
 │   │   ├── trends.py        #   GET /trends, GET /trends/topics
+│   │   ├── horizon.py       #   GET /agents/horizon, POST /agents/horizon/chat
 │   │   ├── health.py        #   GET /health, GET /health/openai
 │   │   └── deps.py          #   builds the services once and reuses them
 │   ├── schemas/             # request/response models = the API contract
 │   ├── services/
 │   │   ├── chat_service.py      # builds messages, calls OpenAI, streams
 │   │   ├── trends_service.py    # per-topic web search + validation + "only new" merge
-│   │   └── trends_parsing.py    # pure helpers (URL cleanup, citations, dates, JSON parsing)
+│   │   ├── trends_parsing.py    # pure helpers (URL cleanup, citations, dates, JSON parsing)
+│   │   ├── horizon_service.py   # Horizon agent: analysis, scoring, saving, the on-demand conversation
+│   │   └── horizon_parsing.py   # pure helpers (checking the model's JSON, ranking, plan cleanup)
 │   ├── prompts/
 │   │   ├── chat_system.md       # persona, scope, guardrails
-│   │   └── trends_search.md     # what research to look for, rules, output format
-│   ├── core/                # config, OpenAI client, scheduler, results file, errors, file loading
+│   │   ├── trends_search.md     # what research to look for, rules, output format
+│   │   ├── horizon_analysis.md  # Horizon agent: how to group, score and cite
+│   │   └── horizon_planner.md   # Horizon agent: how to ask what the user wants
+│   ├── core/                # config, OpenAI client, scheduler, scheduled job, results file, errors, file loading
 │   └── resources/
 │       ├── topics.json          # the five topics and what each one covers
 │       ├── allowed_domains.json # trusted source domains
+│       ├── horizon_context.json # demo platform profile per topic (gap %, probability, horizon)
 │       └── quick_questions.json # the 3 fixed quick questions
-├── data/                    # created at run time: trends_store.json (not in git)
+├── data/                    # created at run time: trends_store.json, horizon_store.json (not in git)
 ├── scripts/
 │   ├── check_env.py         # step 1: is the environment ready (offline)
 │   └── smoke_test.py        # step 5: try every endpoint with the real key
-└── tests/                   # 88 tests, OpenAI is mocked, no key needed
+└── tests/                   # 125 tests, OpenAI is mocked, no key needed
 ```
 
 Prompts, the topic list, the domain list and the quick questions are plain files. You can change them without touching Python.
@@ -77,7 +84,7 @@ Note: `--reload` restarts the server when `.py` files change, but **not** when y
 Do these in order. If a step fails, fix it before moving on.
 
 1. **Environment**: `python scripts/check_env.py`. Expect all `[ OK ]`, including the API key line.
-2. **Unit tests** (no key, no cost): `pytest`. Expect `88 passed`.
+2. **Unit tests** (no key, no cost): `pytest`. Expect `125 passed`.
 3. **Start the server**, then open `/health`. Expect `"status": "ok"`, `"openai_key_configured": true`, and a `trends_refresh` block showing the schedule (frequency, day, time) and the next run.
 4. **Key and models**: open `/health/openai`. Expect `"status": "ok"` with both models `"ok": true`. This only looks the models up, so it costs nothing. If a model is missing, change `CHAT_MODEL` or `TRENDS_MODEL` (see Troubleshooting).
 5. **Topics** (free): open `/trends/topics`. Expect the five topics with their slugs.
@@ -142,6 +149,84 @@ Things to know:
 - Run one worker for this POC. Each worker would run its own refresh and keep its own copy of the results, which multiplies cost.
 - After a failed refresh, `/trends` does not retry for 10 minutes if it already has results to show, so a quota problem does not trigger searches on every page view.
 - On Windows the time zone database is not built in. `requirements.txt` includes `tzdata` for this. Without it, `Asia/Dubai` falls back to a fixed UTC+4 and other zones fall back to UTC, with a warning in the log.
+
+## Horizon Scanning Agent
+
+Agent 1 of the agent plan. The research feed (`/trends`) only **finds and lists** research. The Horizon Scanning Agent **analyses** it: it reads the research items the feed has already stored (it does not search the web again) and groups them into **trend cards**.
+
+```
+research feed (stored items) -> Horizon Scanning Agent -> scored trend cards (status: draft)
+```
+
+Each card has: `trend`, `theme`, a short `summary` (about 60 words, with `[n]` citations), three scores from 1 to 5 each with a one-line reason, `so_what_for_dubai_police`, `sources`, `confidence` and `status`.
+
+| Score | 1 | 5 |
+|---|---|---|
+| `impact` | minor | transformative |
+| `time_to_adopt` | ready within a year | more than 5 years or not yet proven (**lower = sooner**) |
+| `relevance` | low fit with Dubai Police priorities | very high fit |
+
+How it stays honest:
+- The model only sees numbered research items and points at them by number. The source title, link and date on a card are **copied from the stored items**, never written by the model. A card with no real source number is dropped.
+- A card with a missing score is dropped, not filled in with a guess. Scores outside 1 to 5 are clamped. A `[n]` citation that points at a non-existent source is removed.
+- Dated items older than `HORIZON_MAX_AGE_MONTHS` (default 24, matching the feed's "last ~24 months" preference) are ignored. A bare year such as `2025` counts as its last day (31 December), so it gets the benefit of the doubt. Undated items are kept. If every item of a topic is too old, the agent says so and tells you to refresh the feed or raise the limit.
+- The agent only has each item's short summary (not the full page), so confidence is lower when evidence is thin.
+- The demo profile in `app/resources/horizon_context.json` (strategic gap %, adoption probability, horizon, taken from the prototype) is used only to judge relevance. It is not presented as a finding.
+- Cards are `status: "draft"`. Approving and publishing them is the backend team's job.
+
+### When it runs
+
+- **Weekly, after the feed.** When the automatic refresh finishes the research feed, the agent runs right after it, on topics whose research changed. It follows the feed schedule (daily or weekly). Set `HORIZON_AUTO_RUN_AFTER_REFRESH=false` to turn the chaining off. If only the agent fails, the feed refresh still counts as successful and is not repeated.
+- **On demand.** `GET /agents/horizon?refresh=true` re-runs the analysis now (one model call per topic, no web search). `POST /agents/horizon/chat` is the conversation described below.
+- **Reading.** `GET /agents/horizon` returns the saved cards. It never calls the model.
+- If a topic has no research items yet, the agent says so. Run the feed first (`GET /trends?refresh=true`).
+
+### `GET /agents/horizon`
+
+Query: `topic` (slug), `top_n` (1 to 10, cards per topic), `rank_by` (`relevance` default, `impact`, `time_to_adopt` soonest first), `refresh` (re-run the analysis now).
+
+```json
+{
+  "topics": [{
+    "topic": "digital-twin", "name": "Digital Twin", "count": 2, "total_available": 4, "items_analyzed": 8,
+    "last_run": "2026-11-17T06:20:11+00:00", "warning": null,
+    "cards": [{
+      "id": "digital-twin-1", "trend": "Policy simulation before roll-out", "theme": "Policies",
+      "summary": "Agencies test new policies in a virtual copy first [1].",
+      "scores": {"impact": {"score": 4, "reason": "..."}, "time_to_adopt": {"score": 2, "reason": "..."}, "relevance": {"score": 5, "reason": "..."}},
+      "so_what_for_dubai_police": "Consider a pilot for policy simulation.",
+      "sources": [{"ref": 1, "title": "...", "source_name": "RAND Corporation", "source_url": "https://...", "published_date": "2026-05-10"}],
+      "confidence": "medium", "status": "draft", "generated_at": "2026-11-17T06:20:11+00:00"
+    }]
+  }],
+  "total": 2, "rank_by": "relevance", "status": "draft", "model": "gpt-5.4-mini", "ai_generated": true, "disclaimer": "...", "warning": null
+}
+```
+
+### `POST /agents/horizon/chat` (the on-demand conversation)
+
+The agent talks first instead of dumping everything. The caller sends the message and the earlier messages (`history`, oldest first, up to 20); the server keeps no session, the same as `/chat`.
+
+```json
+{"message": "Show me the trends", "history": []}
+```
+
+Every answer has a `type`:
+- `question`: the request was too vague. `message` is the question and `suggestions` are 1 to 4 short replies to show as buttons. No cards yet.
+- `result`: it knows enough. `result` holds the same structure as `GET /agents/horizon`, `plan` says what it understood (`topics`, `top_n`, `rank_by`, `reanalyze`), and `message` is a one-line recap.
+- `message`: a plain reply, for example when the request is off-topic or there is no research yet.
+
+It asks about what is missing (which topics, how many, ranked by what), never about what you already said ("top 3 for digital twin by impact" runs at once). It asks at most `HORIZON_MAX_QUESTIONS` times (default 2, counted as the assistant messages in `history`), then runs with defaults: all topics, all cards, ranked by relevance. It uses the cheap chat model for this step, stays on the trend cards, and ignores attempts to change its rules.
+
+Example conversation:
+
+```
+YOU:   Show me the trends
+AGENT: [question] Happy to. Which topic would you like, and how many cards per topic?
+       buttons: All five topics | Digital Twin | Top 3 per topic
+YOU:   Digital Twin, the top 2
+AGENT: [result] Here are the top 2 per topic for Digital Twin, ranked by relevance to Dubai Police (2 cards).
+```
 
 ## API reference
 
@@ -314,6 +399,13 @@ All settings are environment variables (or `.env`). See `.env.example`.
 | `TRENDS_REFRESH_TIME` | `06:00` | `HH:MM`, 24-hour clock |
 | `TRENDS_REFRESH_TIMEZONE` | `Asia/Dubai` | IANA time zone name |
 | `TRENDS_REFRESH_ON_STARTUP` | `false` | Also refresh at every server start |
+| `HORIZON_MODEL` | `gpt-5.4-mini` | Model for the agent's analysis (no web search needed) |
+| `HORIZON_MAX_OUTPUT_TOKENS` | 6000 | Reasoning models count hidden thinking tokens here too |
+| `HORIZON_CARDS_PER_TOPIC` | 5 | Most trend cards the agent writes per topic (1 to 10) |
+| `HORIZON_MAX_AGE_MONTHS` | 24 | Dated research items older than this are ignored |
+| `HORIZON_STORE_PATH` | `data/horizon_store.json` | Cards file. Empty = memory only |
+| `HORIZON_AUTO_RUN_AFTER_REFRESH` | `true` | Run the agent after each automatic feed refresh |
+| `HORIZON_MAX_QUESTIONS` | 2 | Clarifying questions in the conversation before it just runs (0 = never ask) |
 | `OPENAI_TIMEOUT_SECONDS` | 180 | Research searches can be slow |
 | `ALLOWED_ORIGINS` | `*` | CORS origins |
 | `LOG_LEVEL` | `INFO` | The log shows `Research refresh`, `Dropped item` and per-topic lines that explain results |
@@ -325,6 +417,7 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - **The five topics and what each covers**: edit `app/resources/topics.json` (`slug`, `name`, `focus`), then restart. The `focus` text steers the search.
 - **Trusted sources**: edit `app/resources/allowed_domains.json` (domains without `https://`, subdomains are included automatically), then restart. Adding research and think-tank sites gives topics more to find.
 - **Quick questions**: edit `app/resources/quick_questions.json`, then restart.
+- **How the Horizon agent scores and writes cards**: edit `app/prompts/horizon_analysis.md`. **How it asks questions**: edit `app/prompts/horizon_planner.md`. **The demo profile per topic**: edit `app/resources/horizon_context.json`. Restart after any change.
 - **Models, schedule, limits**: set the environment variables above, then restart.
 
 ## Troubleshooting
@@ -335,6 +428,9 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - **A topic has few or no items**: the trusted list may have little on that topic. Check the log for `Dropped item` lines (they say why items were rejected), then add suitable domains to `allowed_domains.json`.
 - **`/trends` returns `no_valid_trends`**: the search found nothing citable on the allowed domains. Call again, or add more trusted domains.
 - **Timeouts while refreshing**: raise `OPENAI_TIMEOUT_SECONDS`, lower `TRENDS_SEARCH_CONCURRENCY`, or set `REASONING_EFFORT=low`.
+- **`/agents/horizon` shows `No trend cards yet`**: the feed has no items for that topic, or the analysis has not run. Run `GET /trends?refresh=true`, then `GET /agents/horizon?refresh=true`.
+- **`No trend cards yet. All the research for this topic is older than N months`**: the dated items the feed found are all older than `HORIZON_MAX_AGE_MONTHS`. Refresh the feed (`GET /trends?refresh=true`) or raise the limit (for example `HORIZON_MAX_AGE_MONTHS=36`).
+- **`no_valid_cards`**: the model returned no card that passed the checks (real source number, all three scores). Try again, or check the log.
 - **The automatic refresh did not run**: check `/health` for `trends_refresh.last_result` and the server log for `Research refresh` lines. The server must have been running at the scheduled time, in the time zone you set.
 - **Log says "Time zone database not found"**: run `pip install tzdata` in your environment.
 - **Everything is "new" after a restart**: the results file is missing or `TRENDS_STORE_PATH` is empty. Check that `data/trends_store.json` exists and the server can write to the project folder.
@@ -354,4 +450,5 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - English only. A message in another language gets an English answer.
 - No authentication, rate limiting or database. Those belong to the backend developer.
 - Chat content and search queries are sent to OpenAI. Confirm this is acceptable for the client's data policy before real use.
-- Nothing here uses internal Dubai Police data.
+- Nothing here uses internal Dubai Police data. The Horizon agent's profile (`horizon_context.json`) is demo data copied from the prototype.
+- Horizon scores are an AI estimate from short summaries, not a measurement. Cards stay `draft`: there is no approval flow, audit log or Arabic output in this POC.

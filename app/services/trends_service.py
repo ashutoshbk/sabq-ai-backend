@@ -82,6 +82,11 @@ class TrendsService:
 
     # -- public -----------------------------------------------------------
 
+    def stored_items(self, slug: str) -> list[StoredItem]:
+        """What the feed has saved for one topic, newest first. Read only: never starts a search."""
+        state = self._state.get(slug)
+        return list(state.items) if state else []
+
     async def get_trends(self, topic: str | None = None, refresh: bool = False) -> TrendsResponse:
         selected = self._select(topic)
         searched = False

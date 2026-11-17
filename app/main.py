@@ -11,10 +11,11 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, health, trends
-from app.api.deps import get_trends_service
+from app.api import chat, health, horizon, trends
+from app.api.deps import get_horizon_service, get_trends_service
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.core.jobs import refresh_feed_then_agent
 from app.core.scheduler import ScheduledRefresher, resolve_timezone
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,15 @@ def create_app() -> FastAPI:
             hour, minute = settings.refresh_hour_minute
 
             async def refresh() -> None:
-                await get_trends_service().get_trends(refresh=True)
+                async def feed() -> None:
+                    await get_trends_service().get_trends(refresh=True)
+
+                async def agent() -> None:
+                    await get_horizon_service().run()
+
+                await refresh_feed_then_agent(
+                    feed, agent if settings.horizon_auto_run_after_refresh else None
+                )
 
             refresher = ScheduledRefresher(
                 refresh,
@@ -69,7 +78,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Sabq AI Backend (POC)",
-        version="0.3.0",
+        version="0.4.0",
         description=(
             "AI endpoints for the Sabq Smart Platform proof of concept.\n\n"
             "- **Chat**: a guard-railed assistant for strategic planning, foresight, "
@@ -77,7 +86,10 @@ def create_app() -> FastAPI:
             "- **Trends**: research on five global trends in security and policing "
             "(Predictive Policing, AI Policing, Digital Twin, Autonomous Surveillance, "
             "Smart Investigation), up to 10 items per topic, found with OpenAI web search "
-            "and restricted to trusted sources. Refreshed automatically, daily or weekly."
+            "and restricted to trusted sources. Refreshed automatically, daily or weekly.\n"
+            "- **Agents / Horizon Scanning**: reads the stored research and writes scored trend "
+            "cards (impact, time-to-adopt, relevance, 'so what for Dubai Police'). On demand it "
+            "talks: it asks what you want, then runs. Cards stay in draft until approved."
         ),
         lifespan=lifespan,
     )
@@ -94,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(trends.router)
+    app.include_router(horizon.router)
 
     @app.get("/", include_in_schema=False)
     async def root():

@@ -7,6 +7,7 @@ from app.core.openai_client import get_openai_client
 from app.core.resources import load_allowed_domains, load_topics
 from app.core.store import JsonFileStore, resolve_store_path
 from app.services.chat_service import ChatService
+from app.services.horizon_service import HorizonService
 from app.services.trends_service import TrendsService
 
 
@@ -21,3 +22,11 @@ def get_trends_service() -> TrendsService:
     path = resolve_store_path(settings.trends_store_path)
     store = JsonFileStore(path) if path else None
     return TrendsService(get_openai_client(), settings, load_allowed_domains(), load_topics(), store)
+
+
+@lru_cache
+def get_horizon_service() -> HorizonService:
+    settings = get_settings()
+    path = resolve_store_path(settings.horizon_store_path)
+    store = JsonFileStore(path) if path else None
+    return HorizonService(get_openai_client(), settings, get_trends_service(), load_topics(), store)
