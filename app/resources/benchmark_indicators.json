@@ -1,0 +1,51 @@
+[
+  {
+    "id": "un-egdi",
+    "name": "UN E-Government Development Index (EGDI)",
+    "publisher": "United Nations (UN DESA)",
+    "level": "country",
+    "hint": "The most recent UN E-Government Survey: the country's EGDI value (a number from 0 to 1) and its world rank.",
+    "domains": ["un.org", "u.ae"],
+    "comparable_across_entities": true
+  },
+  {
+    "id": "imd-wcr",
+    "name": "IMD World Competitiveness Ranking",
+    "publisher": "IMD World Competitiveness Center",
+    "level": "country",
+    "hint": "The most recent IMD World Competitiveness Ranking: the economy's overall score (0 to 100) and its rank among the economies ranked.",
+    "domains": ["imd.org"],
+    "comparable_across_entities": true
+  },
+  {
+    "id": "gallup-law-order",
+    "name": "Gallup Global Law and Order Index",
+    "publisher": "Gallup",
+    "level": "country",
+    "hint": "The most recent Gallup Global Law and Order report: the country's Law and Order Index score (0 to 100). Only if the country is included.",
+    "domains": ["gallup.com"],
+    "comparable_across_entities": true
+  },
+  {
+    "id": "oxford-ai-readiness",
+    "name": "Government AI Readiness Index",
+    "publisher": "Oxford Insights",
+    "level": "country",
+    "hint": "The most recent Government AI Readiness Index: the country's overall score (0 to 100) and its rank.",
+    "domains": ["oxfordinsights.com"],
+    "comparable_across_entities": true
+  },
+  {
+    "id": "police-public-trust",
+    "name": "Published public trust or safety survey",
+    "publisher": "Official publications",
+    "level": "organization",
+    "applies_to_kinds": ["police", "ministry"],
+    "hint": "The most recent PUBLISHED survey result on public trust, confidence, satisfaction or perceived safety for this organization, as a percentage (0 to 100). Say exactly what the percentage measures in the metric field.",
+    "domains": [
+      "dubaipolice.gov.ae", "adpolice.gov.ae", "moi.gov.ae", "mediaoffice.ae", "u.ae",
+      "government.ae", "police.gov.sg", "mha.gov.sg", "lkyspp.nus.edu.sg", "met.police.uk", "gov.uk"
+    ],
+    "comparable_across_entities": false
+  }
+]

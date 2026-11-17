@@ -1,0 +1,71 @@
+{
+  "valid_types": ["Reference", "Competitor"],
+  "entities": [
+    {
+      "id": "dubai-police",
+      "name": "Strategic Planning Department · Dubai Police",
+      "org_kind": "police",
+      "country": "United Arab Emirates",
+      "scope": "Local",
+      "type": "Reference",
+      "is_self": true,
+      "demo_score": 88,
+      "demo_rank": "#1"
+    },
+    {
+      "id": "abu-dhabi-police",
+      "name": "Planning Department · Abu Dhabi Police",
+      "org_kind": "police",
+      "country": "United Arab Emirates",
+      "scope": "Local",
+      "type": "Competitor",
+      "is_self": false,
+      "demo_score": 84,
+      "demo_rank": "#2"
+    },
+    {
+      "id": "uae-moi",
+      "name": "Excellence Department · UAE Ministry of Interior",
+      "org_kind": "ministry",
+      "country": "United Arab Emirates",
+      "scope": "Federal",
+      "type": "Reference",
+      "is_self": false,
+      "demo_score": 86,
+      "demo_rank": "#1"
+    },
+    {
+      "id": "singapore-planning",
+      "name": "Strategic Planning Department · Singapore",
+      "org_kind": "government",
+      "country": "Singapore",
+      "scope": "Global",
+      "type": "High",
+      "is_self": false,
+      "demo_score": 96,
+      "demo_rank": "#1"
+    },
+    {
+      "id": "uae-federal-planning",
+      "name": "Federal Government Planning Department · UAE",
+      "org_kind": "government",
+      "country": "United Arab Emirates",
+      "scope": "Global",
+      "type": "High",
+      "is_self": false,
+      "demo_score": 91,
+      "demo_rank": "#2"
+    },
+    {
+      "id": "south-korea-planning",
+      "name": "Strategic Planning Office · South Korea",
+      "org_kind": "government",
+      "country": "South Korea",
+      "scope": "Global",
+      "type": "High",
+      "is_self": false,
+      "demo_score": 93,
+      "demo_rank": "#3"
+    }
+  ]
+}

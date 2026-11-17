@@ -1,12 +1,13 @@
 # Sabq AI Backend (POC)
 
-AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer three things to plug into the existing front-end:
+AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer four things to plug into the existing front-end:
 
 | Feature | Endpoint | Front-end page |
 |---|---|---|
 | Chatbot (guard-railed, no internal data, English only) | `POST /chat`, `POST /chat/stream`, `GET /chat/quick-questions` | Sabq AI |
 | Research on five global trends, up to 10 items per topic, with original links, refreshed daily or weekly | `GET /trends`, `GET /trends/topics` | Horizon Scan, Global Trends tab |
 | **Horizon Scanning Agent**: reads that research and writes scored trend cards (impact, time-to-adopt, relevance, "so what for Dubai Police"). On demand it talks to the user first | `GET /agents/horizon`, `POST /agents/horizon/chat` | Horizon Scan, Global Trends tab |
+| **Benchmarking Agent**: finds published indicator figures online for the entities of the competitive table, with source links, and explains what can and cannot be compared | `GET /agents/benchmark`, `GET /agents/benchmark/indicators` | Horizon Scan, Competitive Indicators tab |
 
 The five trend topics come from the prototype: Predictive Policing, AI Policing, Digital Twin, Autonomous Surveillance, Smart Investigation.
 
@@ -26,6 +27,7 @@ sabq-ai-backend/
 │   │   ├── chat.py          #   POST /chat, POST /chat/stream, GET /chat/quick-questions
 │   │   ├── trends.py        #   GET /trends, GET /trends/topics
 │   │   ├── horizon.py       #   GET /agents/horizon, POST /agents/horizon/chat
+│   │   ├── benchmark.py     #   GET /agents/benchmark, GET /agents/benchmark/indicators
 │   │   ├── health.py        #   GET /health, GET /health/openai
 │   │   └── deps.py          #   builds the services once and reuses them
 │   ├── schemas/             # request/response models = the API contract
@@ -34,23 +36,28 @@ sabq-ai-backend/
 │   │   ├── trends_service.py    # per-topic web search + validation + "only new" merge
 │   │   ├── trends_parsing.py    # pure helpers (URL cleanup, citations, dates, JSON parsing)
 │   │   ├── horizon_service.py   # Horizon agent: analysis, scoring, saving, the on-demand conversation
-│   │   └── horizon_parsing.py   # pure helpers (checking the model's JSON, ranking, plan cleanup)
+│   │   ├── horizon_parsing.py   # pure helpers (checking the model's JSON, ranking, plan cleanup)
+│   │   ├── benchmark_service.py # Benchmarking agent: online search, saving, comparison
+│   │   └── benchmark_parsing.py # pure helpers (checking figures, normalizing, grouping, table checks)
 │   ├── prompts/
 │   │   ├── chat_system.md       # persona, scope, guardrails
 │   │   ├── trends_search.md     # what research to look for, rules, output format
 │   │   ├── horizon_analysis.md  # Horizon agent: how to group, score and cite
-│   │   └── horizon_planner.md   # Horizon agent: how to ask what the user wants
+│   │   ├── horizon_planner.md   # Horizon agent: how to ask what the user wants
+│   │   ├── benchmark_search.md  # Benchmarking agent: how to find and report a published figure
 │   ├── core/                # config, OpenAI client, scheduler, scheduled job, results file, errors, file loading
 │   └── resources/
 │       ├── topics.json          # the five topics and what each one covers
 │       ├── allowed_domains.json # trusted source domains
 │       ├── horizon_context.json # demo platform profile per topic (gap %, probability, horizon)
+│       ├── benchmark_entities.json   # the rows of the competitive table (demo data)
+│       ├── benchmark_indicators.json # the indicators to look for: name, publisher, trusted domains (no links)
 │       └── quick_questions.json # the 3 fixed quick questions
-├── data/                    # created at run time: trends_store.json, horizon_store.json (not in git)
+├── data/                    # created at run time: trends_store.json, horizon_store.json, benchmark_store.json (not in git)
 ├── scripts/
 │   ├── check_env.py         # step 1: is the environment ready (offline)
 │   └── smoke_test.py        # step 5: try every endpoint with the real key
-└── tests/                   # 125 tests, OpenAI is mocked, no key needed
+└── tests/                   # 165 tests, OpenAI is mocked, no key needed
 ```
 
 Prompts, the topic list, the domain list and the quick questions are plain files. You can change them without touching Python.
@@ -84,7 +91,7 @@ Note: `--reload` restarts the server when `.py` files change, but **not** when y
 Do these in order. If a step fails, fix it before moving on.
 
 1. **Environment**: `python scripts/check_env.py`. Expect all `[ OK ]`, including the API key line.
-2. **Unit tests** (no key, no cost): `pytest`. Expect `125 passed`.
+2. **Unit tests** (no key, no cost): `pytest`. Expect `165 passed`.
 3. **Start the server**, then open `/health`. Expect `"status": "ok"`, `"openai_key_configured": true`, and a `trends_refresh` block showing the schedule (frequency, day, time) and the next run.
 4. **Key and models**: open `/health/openai`. Expect `"status": "ok"` with both models `"ok": true`. This only looks the models up, so it costs nothing. If a model is missing, change `CHAT_MODEL` or `TRENDS_MODEL` (see Troubleshooting).
 5. **Topics** (free): open `/trends/topics`. Expect the five topics with their slugs.
@@ -226,6 +233,51 @@ AGENT: [question] Happy to. Which topic would you like, and how many cards per t
        buttons: All five topics | Digital Twin | Top 3 per topic
 YOU:   Digital Twin, the top 2
 AGENT: [result] Here are the top 2 per topic for Digital Twin, ranked by relevance to Dubai Police (2 cards).
+```
+
+## Benchmarking Agent
+
+Agent 2 of the agent plan, for the **Competitive Indicators** tab. It searches the web for **published figures** about the entities of the competitive table (Singapore, South Korea, the UAE and so on), and shows what it found **with the source link and a plain explanation of what can and cannot be compared**. It is not a forced comparison: whatever can be compared fairly is ranked, everything else is shown with a reason.
+
+**Nothing about links is hard-coded.** `app/resources/benchmark_indicators.json` lists the indicators to look for (name, publisher, what to find, and the trusted domains to search). `app/resources/benchmark_entities.json` lists the entities. The pages themselves are found by web search at run time. To add an indicator or an entity, edit those two files and restart. `GET /agents/benchmark/indicators` lists what is configured.
+
+Starter indicators: UN E-Government Development Index, IMD World Competitiveness Ranking, Gallup Global Law and Order Index, Government AI Readiness Index (all country-level), and a "published public trust or safety survey" for police forces and the ministry.
+
+How it stays honest:
+- A figure is kept only if the search tool actually **cited its page**, the page is on that indicator's **trusted domains**, and the number fits its own stated scale. Anything else is dropped.
+- **"Not found" is a normal answer.** Nothing is estimated, converted or filled in. A later "not found" never wipes a figure we already have, and an older edition never replaces a newer one.
+- **Code does the maths.** Normalizing to 0 to 100, ranking (ties share a rank) and comparability are plain code. The model only reads pages. The short insight is also built in plain code from the computed ranking, so it can never contradict the numbers.
+- **Like with like only.** Entities are ranked together only for the same indicator, the same year and the same basis (score or rank). A figure from another year or scale is shown with a note saying why it was not ranked. Published surveys (public trust) use different methods, so they are shown but never ranked against each other.
+- **Country figures are labeled as such.** An index describes a country as a whole, not the planning department in the table. Every entity of the same country shares that country's figure, and the response says so.
+- **Demo baseline.** The scores in the platform table (88, 84, 86, 96, 91, 93) are demo data. They are returned as `baseline`, labeled, and never ranked against published figures.
+- **Data checks on the platform table**, in plain code (`data_checks`): a score that is higher but ranked lower inside the same scope, a type that is not allowed (`High`), ranks that are only consistent per scope (asks you to confirm), and the missing source and date.
+- Results are `status: "draft"`.
+
+### When it runs
+
+- **Scheduled, only when due.** After the weekly feed refresh the agent runs, but it searches only if its results are older than `BENCHMARK_REFRESH_DAYS` (default 90) or an indicator has no results yet. Published indices change yearly, so this costs about 5 searches a quarter. Set `BENCHMARK_AUTO_RUN_AFTER_REFRESH=false` to turn the chaining off.
+- **On demand.** `GET /agents/benchmark?refresh=true` searches now (about one search per indicator).
+- **Reading.** `GET /agents/benchmark` returns the saved results and never searches. Before the first run it returns the baseline with a warning.
+
+### `GET /agents/benchmark`
+
+Returns `entities` (each with `baseline` and its `findings`), `indicators` (the comparable ranking per indicator), `data_checks`, `insight`, `last_run`, `warning`, `disclaimer` and `status`.
+
+Each entity finding has: `status` (`found` or `not_found`), `describes`, `metric`, `value`, `scale_min`, `scale_max`, `rank`, `rank_of`, `year`, `normalized` (only when ranked), `source_name`, `source_url`, `evidence`, `confidence`, `comparable`, `group_rank` and a plain-language `note`.
+
+```json
+{
+  "id": "singapore-planning", "name": "Strategic Planning Department · Singapore",
+  "baseline": {"score": 96.0, "rank": "#1", "label": "Platform demo data (not a published indicator)"},
+  "findings": [{
+    "indicator_id": "un-egdi", "indicator_name": "UN E-Government Development Index (EGDI)",
+    "status": "found", "describes": "Singapore (the country as a whole)",
+    "metric": "EGDI value", "value": 0.9, "scale_min": 0.0, "scale_max": 1.0, "year": 2024,
+    "normalized": 90.0, "comparable": true, "group_rank": 2,
+    "source_name": "United Nations (UN DESA)", "source_url": "https://...", "evidence": "...", "confidence": "high",
+    "note": "Ranked with South Korea, Singapore, United Arab Emirates: same indicator, same year (2024), same basis. This figure describes the country as a whole, not this organization."
+  }]
+}
 ```
 
 ## API reference
@@ -406,6 +458,11 @@ All settings are environment variables (or `.env`). See `.env.example`.
 | `HORIZON_STORE_PATH` | `data/horizon_store.json` | Cards file. Empty = memory only |
 | `HORIZON_AUTO_RUN_AFTER_REFRESH` | `true` | Run the agent after each automatic feed refresh |
 | `HORIZON_MAX_QUESTIONS` | 2 | Clarifying questions in the conversation before it just runs (0 = never ask) |
+| `BENCHMARK_MODEL` | `gpt-5.4-mini` | Needs web search and a JSON format |
+| `BENCHMARK_MAX_OUTPUT_TOKENS` | 5000 | Reasoning models count hidden thinking tokens here too |
+| `BENCHMARK_STORE_PATH` | `data/benchmark_store.json` | Results file. Empty = memory only |
+| `BENCHMARK_AUTO_RUN_AFTER_REFRESH` | `true` | Check after each automatic feed refresh (it searches only when due) |
+| `BENCHMARK_REFRESH_DAYS` | 90 | Results older than this are searched again |
 | `OPENAI_TIMEOUT_SECONDS` | 180 | Research searches can be slow |
 | `ALLOWED_ORIGINS` | `*` | CORS origins |
 | `LOG_LEVEL` | `INFO` | The log shows `Research refresh`, `Dropped item` and per-topic lines that explain results |
@@ -418,6 +475,7 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - **Trusted sources**: edit `app/resources/allowed_domains.json` (domains without `https://`, subdomains are included automatically), then restart. Adding research and think-tank sites gives topics more to find.
 - **Quick questions**: edit `app/resources/quick_questions.json`, then restart.
 - **How the Horizon agent scores and writes cards**: edit `app/prompts/horizon_analysis.md`. **How it asks questions**: edit `app/prompts/horizon_planner.md`. **The demo profile per topic**: edit `app/resources/horizon_context.json`. Restart after any change.
+- **Benchmarking indicators, trusted domains and what to look for**: edit `app/resources/benchmark_indicators.json`. **The entities of the competitive table**: edit `app/resources/benchmark_entities.json`. **How figures are searched and reported**: `app/prompts/benchmark_search.md`. Restart after any change.
 - **Models, schedule, limits**: set the environment variables above, then restart.
 
 ## Troubleshooting
@@ -430,6 +488,8 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - **Timeouts while refreshing**: raise `OPENAI_TIMEOUT_SECONDS`, lower `TRENDS_SEARCH_CONCURRENCY`, or set `REASONING_EFFORT=low`.
 - **`/agents/horizon` shows `No trend cards yet`**: the feed has no items for that topic, or the analysis has not run. Run `GET /trends?refresh=true`, then `GET /agents/horizon?refresh=true`.
 - **`No trend cards yet. All the research for this topic is older than N months`**: the dated items the feed found are all older than `HORIZON_MAX_AGE_MONTHS`. Refresh the feed (`GET /trends?refresh=true`) or raise the limit (for example `HORIZON_MAX_AGE_MONTHS=36`).
+- **A benchmark indicator shows `No published figure was found`**: the page is not on the indicator's trusted domains, or the figure is not published for that subject. Check the `Dropped` lines in the log, then add the publisher's domain to `domains` in `benchmark_indicators.json`.
+- **`no_valid_results`**: a benchmark search returned an answer that could not be read. Run `GET /agents/benchmark?refresh=true` again. Figures from earlier runs are kept.
 - **`no_valid_cards`**: the model returned no card that passed the checks (real source number, all three scores). Try again, or check the log.
 - **The automatic refresh did not run**: check `/health` for `trends_refresh.last_result` and the server log for `Research refresh` lines. The server must have been running at the scheduled time, in the time zone you set.
 - **Log says "Time zone database not found"**: run `pip install tzdata` in your environment.
@@ -451,4 +511,5 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - No authentication, rate limiting or database. Those belong to the backend developer.
 - Chat content and search queries are sent to OpenAI. Confirm this is acceptable for the client's data policy before real use.
 - Nothing here uses internal Dubai Police data. The Horizon agent's profile (`horizon_context.json`) is demo data copied from the prototype.
+- Benchmark figures are read by AI from pages found with web search, so spot-check the source link. Coverage can be thin: police forces rarely publish comparable scores, and many indices are country-level only. The agent says "not found" instead of guessing. The baseline scores are demo data.
 - Horizon scores are an AI estimate from short summaries, not a measurement. Cards stay `draft`: there is no approval flow, audit log or Arabic output in this POC.

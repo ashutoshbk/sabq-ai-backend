@@ -11,8 +11,8 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, health, horizon, trends
-from app.api.deps import get_horizon_service, get_trends_service
+from app.api import benchmark, chat, health, horizon, trends
+from app.api.deps import get_benchmark_service, get_horizon_service, get_trends_service
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.jobs import refresh_feed_then_agent
@@ -41,8 +41,13 @@ def create_app() -> FastAPI:
                 async def agent() -> None:
                     await get_horizon_service().run()
 
+                async def benchmark_agent() -> None:
+                    await get_benchmark_service().run()  # searches only when its results are due
+
                 await refresh_feed_then_agent(
-                    feed, agent if settings.horizon_auto_run_after_refresh else None
+                    feed,
+                    agent if settings.horizon_auto_run_after_refresh else None,
+                    benchmark_agent if settings.benchmark_auto_run_after_refresh else None,
                 )
 
             refresher = ScheduledRefresher(
@@ -78,7 +83,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Sabq AI Backend (POC)",
-        version="0.4.0",
+        version="0.5.0",
         description=(
             "AI endpoints for the Sabq Smart Platform proof of concept.\n\n"
             "- **Chat**: a guard-railed assistant for strategic planning, foresight, "
@@ -89,7 +94,10 @@ def create_app() -> FastAPI:
             "and restricted to trusted sources. Refreshed automatically, daily or weekly.\n"
             "- **Agents / Horizon Scanning**: reads the stored research and writes scored trend "
             "cards (impact, time-to-adopt, relevance, 'so what for Dubai Police'). On demand it "
-            "talks: it asks what you want, then runs. Cards stay in draft until approved."
+            "talks: it asks what you want, then runs. Cards stay in draft until approved.\n"
+            "- **Agents / Benchmarking**: finds published indicator figures online for the entities "
+            "of the competitive table, shows the source link, and explains what can and cannot be "
+            "compared. Nothing is estimated."
         ),
         lifespan=lifespan,
     )
@@ -107,6 +115,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(trends.router)
     app.include_router(horizon.router)
+    app.include_router(benchmark.router)
 
     @app.get("/", include_in_schema=False)
     async def root():

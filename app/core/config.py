@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     horizon_auto_run_after_refresh: bool = True  # run the agent after each automatic research refresh
     horizon_max_questions: int = Field(default=2, ge=0, le=5)  # clarifying questions before it just runs
 
+    # Benchmarking Agent: finds published indicator figures online and shows what can be compared.
+    benchmark_model: str = "gpt-5.4-mini"
+    benchmark_max_output_tokens: int = 5000
+    benchmark_store_path: str = "data/benchmark_store.json"  # empty = do not save to a file
+    benchmark_auto_run_after_refresh: bool = True  # check after each automatic refresh (runs only when due)
+    benchmark_refresh_days: int = Field(default=90, ge=1, le=730)  # how old results may get before a new search
+    benchmark_stale_years: int = Field(default=3, ge=1, le=20)  # a figure this many years old gets an 'out of date' note
+
     openai_timeout_seconds: float = 180.0
 
     allowed_origins: str = "*"

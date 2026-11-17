@@ -6,6 +6,7 @@ from app.core.config import get_settings
 from app.core.openai_client import get_openai_client
 from app.core.resources import load_allowed_domains, load_topics
 from app.core.store import JsonFileStore, resolve_store_path
+from app.services.benchmark_service import BenchmarkService, load_entities, load_indicators
 from app.services.chat_service import ChatService
 from app.services.horizon_service import HorizonService
 from app.services.trends_service import TrendsService
@@ -30,3 +31,14 @@ def get_horizon_service() -> HorizonService:
     path = resolve_store_path(settings.horizon_store_path)
     store = JsonFileStore(path) if path else None
     return HorizonService(get_openai_client(), settings, get_trends_service(), load_topics(), store)
+
+
+@lru_cache
+def get_benchmark_service() -> BenchmarkService:
+    settings = get_settings()
+    path = resolve_store_path(settings.benchmark_store_path)
+    store = JsonFileStore(path) if path else None
+    entities, valid_types = load_entities()
+    return BenchmarkService(
+        get_openai_client(), settings, entities, valid_types, load_indicators(), store
+    )
