@@ -1,6 +1,6 @@
 # Sabq AI Backend (POC)
 
-AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer four things to plug into the existing front-end:
+AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer five things to plug into the existing front-end:
 
 | Feature | Endpoint | Front-end page |
 |---|---|---|
@@ -8,10 +8,49 @@ AI backend for the Sabq Smart Platform proof of concept. It gives the backend de
 | Research on five global trends, up to 10 items per topic, with original links, refreshed daily or weekly | `GET /trends`, `GET /trends/topics` | Horizon Scan, Global Trends tab |
 | **Horizon Scanning Agent**: reads that research and writes scored trend cards (impact, time-to-adopt, relevance, "so what for Dubai Police"). On demand it talks to the user first | `GET /agents/horizon`, `POST /agents/horizon/chat` | Horizon Scan, Global Trends tab |
 | **Benchmarking Agent**: finds published indicator figures online for the entities of the competitive table, with source links, and explains what can and cannot be compared | `GET /agents/benchmark`, `GET /agents/benchmark/indicators` | Horizon Scan, Competitive Indicators tab |
+| **Best Practices Curator**: for a gap (taken from the Horizon trend cards and platform data, or typed by the user) finds proven practices at leading organizations, each with a published measurable result, source link, effort and an adaptation note. On demand it talks to the user first | `GET /agents/best-practices/gaps`, `GET` and `POST /agents/best-practices`, `POST /agents/best-practices/chat` | Horizon Scan, Best Practices tab |
 
 The five trend topics come from the prototype: Predictive Policing, AI Policing, Digital Twin, Autonomous Surveillance, Smart Investigation.
 
 Built with FastAPI and the OpenAI Responses API. No database, no login, no Docker. Interactive API docs (the handover document) are generated automatically at `/docs`.
+
+## The agents at a glance (read this first)
+
+The platform plan (see the colleague's agent document) has eight agents behind one orchestrator, the existing Sabq AI. Every agent follows the same pattern: **trigger, gather, analyze, draft, human approval, publish, log**. This POC builds the first three. Their output is always a **draft** for an officer to approve; the approval, publishing and logging steps belong to the backend developer.
+
+| # | Agent | Purpose | Data it uses | Status |
+|---|---|---|---|---|
+| 1 | Horizon Scanning | Turns the collected research into scored trend cards: impact, time-to-adopt, relevance, "so what for Dubai Police" | The research feed (`/trends`) | Built |
+| 2 | Benchmarking | Finds published indicator figures online for the entities of the competitive table and explains what can and cannot be compared | Live web search (trusted domains) and the demo table | Built |
+| 3 | Best Practices Curator | Finds proven practices that close a gap, with measurable results, effort and adaptation notes | Agent 1's trend cards, the platform demo data, live web search | Built |
+| 4 | Process and Procedure Analyst | Reads SOPs, finds waste, proposes maturity scores | Needs SOP documents | Not built |
+| 5 | Excellence Radar | Tracks award cycles and maps evidence to criteria | Needs award criteria and an evidence library | Not built |
+| 6 | Improvement Portfolio | Scores and prioritizes opportunities from agents 1 to 5 and drafts charters | Needs the portfolio and strategic objectives | Not built |
+| 7 | Follow-up and Progress | Chases owners, checks evidence, computes progress | Needs initiatives and uploads | Not built |
+| 8 | Executive Summary and Data Quality | Weekly brief and audit of the other agents' data | Needs approved module data | Not built |
+
+How they connect today:
+
+```
+research feed (/trends)  -->  Horizon Scanning (agent 1)  -->  trend cards  -->  Best Practices (agent 3)  -->  practice cards (draft)
+                                                                                         ^
+platform demo data (horizon_context.json) -----------------------------------------------+
+
+web search (trusted domains)  -->  Benchmarking (agent 2)  -->  indicator figures, ranking, data checks (draft)
+```
+
+Rules that every agent follows (so a deployer knows what to expect):
+- **Web search only on trusted domains**, and no link is written in the code. A link or figure is kept only if the search tool actually cited that page.
+- **Code does the maths and the ranking.** The model only reads pages and writes text. Insights and recommendations that contain numbers are built in code, so they cannot contradict the data.
+- **"Not found" is a normal answer.** Nothing is estimated or filled in from memory.
+- **English only. Demo data is labelled as demo data.** Nothing here uses internal Dubai Police data.
+- **Everything is `status: "draft"` and marked AI-generated.** Source links stay visible.
+- **The model can be switched.** All calls go through one OpenAI client, so a UAE-hosted or on-prem model can replace it later (the web search tool would then need an equivalent).
+
+When they run:
+- **Automatically, weekly:** the research feed refreshes, then Horizon Scanning runs, then Benchmarking runs only if its results are due (older than 90 days). See "Automatic refresh".
+- **On demand:** each agent can be called from the Sabq AI page. Horizon Scanning and Best Practices answer as a short conversation (they ask what is missing, then run). Best Practices searches only when asked or when nothing is saved yet.
+
 
 ## Project structure
 
@@ -28,6 +67,7 @@ sabq-ai-backend/
 │   │   ├── trends.py        #   GET /trends, GET /trends/topics
 │   │   ├── horizon.py       #   GET /agents/horizon, POST /agents/horizon/chat
 │   │   ├── benchmark.py     #   GET /agents/benchmark, GET /agents/benchmark/indicators
+│   │   ├── best_practices.py #  GET /agents/best-practices/gaps, GET + POST /agents/best-practices, POST .../chat
 │   │   ├── health.py        #   GET /health, GET /health/openai
 │   │   └── deps.py          #   builds the services once and reuses them
 │   ├── schemas/             # request/response models = the API contract
@@ -38,13 +78,17 @@ sabq-ai-backend/
 │   │   ├── horizon_service.py   # Horizon agent: analysis, scoring, saving, the on-demand conversation
 │   │   ├── horizon_parsing.py   # pure helpers (checking the model's JSON, ranking, plan cleanup)
 │   │   ├── benchmark_service.py # Benchmarking agent: online search, saving, comparison
-│   │   └── benchmark_parsing.py # pure helpers (checking figures, normalizing, grouping, table checks)
+│   │   ├── benchmark_parsing.py # pure helpers (checking figures, normalizing, grouping, table checks)
+│   │   ├── best_practices_service.py # Best Practices agent: gaps, search, saving, the on-demand conversation
+│   │   └── best_practices_parsing.py # pure helpers (checking practices, ranking, recommendation)
 │   ├── prompts/
 │   │   ├── chat_system.md       # persona, scope, guardrails
 │   │   ├── trends_search.md     # what research to look for, rules, output format
 │   │   ├── horizon_analysis.md  # Horizon agent: how to group, score and cite
 │   │   ├── horizon_planner.md   # Horizon agent: how to ask what the user wants
 │   │   ├── benchmark_search.md  # Benchmarking agent: how to find and report a published figure
+│   │   ├── best_practices_search.md  # Best Practices agent: how to find proven practices with results
+│   │   ├── best_practices_planner.md # Best Practices agent: how to ask which gap
 │   ├── core/                # config, OpenAI client, scheduler, scheduled job, results file, errors, file loading
 │   └── resources/
 │       ├── topics.json          # the five topics and what each one covers
@@ -52,12 +96,13 @@ sabq-ai-backend/
 │       ├── horizon_context.json # demo platform profile per topic (gap %, probability, horizon)
 │       ├── benchmark_entities.json   # the rows of the competitive table (demo data)
 │       ├── benchmark_indicators.json # the indicators to look for: name, publisher, trusted domains (no links)
+│       ├── best_practice_domains.json # trusted domains for practice case studies (no links)
 │       └── quick_questions.json # the 3 fixed quick questions
-├── data/                    # created at run time: trends_store.json, horizon_store.json, benchmark_store.json (not in git)
+├── data/                    # created at run time: trends_store.json, horizon_store.json, benchmark_store.json, best_practices_store.json (not in git)
 ├── scripts/
 │   ├── check_env.py         # step 1: is the environment ready (offline)
 │   └── smoke_test.py        # step 5: try every endpoint with the real key
-└── tests/                   # 165 tests, OpenAI is mocked, no key needed
+└── tests/                   # 212 tests, OpenAI is mocked, no key needed
 ```
 
 Prompts, the topic list, the domain list and the quick questions are plain files. You can change them without touching Python.
@@ -91,12 +136,13 @@ Note: `--reload` restarts the server when `.py` files change, but **not** when y
 Do these in order. If a step fails, fix it before moving on.
 
 1. **Environment**: `python scripts/check_env.py`. Expect all `[ OK ]`, including the API key line.
-2. **Unit tests** (no key, no cost): `pytest`. Expect `165 passed`.
+2. **Unit tests** (no key, no cost): `pytest`. Expect `212 passed`.
 3. **Start the server**, then open `/health`. Expect `"status": "ok"`, `"openai_key_configured": true`, and a `trends_refresh` block showing the schedule (frequency, day, time) and the next run.
 4. **Key and models**: open `/health/openai`. Expect `"status": "ok"` with both models `"ok": true`. This only looks the models up, so it costs nothing. If a model is missing, change `CHAT_MODEL` or `TRENDS_MODEL` (see Troubleshooting).
 5. **Topics** (free): open `/trends/topics`. Expect the five topics with their slugs.
 6. **One topic first** (cheaper than all five): open `/trends?topic=digital-twin&refresh=true`. This runs one or two live searches. Check the items, then open some links.
 7. **Full smoke test** (second terminal, server still running): `python scripts/smoke_test.py` (add `--skip-trends` to skip the research call). It prints every chat answer so you can judge the guardrails yourself.
+8. **Agents** (in `/docs`, under *Agents*): `GET /agents/horizon`, `GET /agents/benchmark?refresh=true` (about 5 searches), `GET /agents/best-practices/gaps`, then `POST /agents/best-practices/run` with `{"gap_id": "digital-twin"}` (one search). Read the source links. Details are in each agent's section below.
 
 To try the stream by hand (the `/docs` page only shows the result after it finishes, so it does not show the live effect):
 
@@ -279,6 +325,34 @@ Each entity finding has: `status` (`found` or `not_found`), `describes`, `metric
   }]
 }
 ```
+
+## Best Practices Curator (Agent 3)
+
+Agent 3 of the agent plan, for the **Best Practices** tab. For a **gap**, it searches the web for up to 5 **proven practices at leading organizations** and turns each into an adoptable card: what they did, the **measurable published result**, prerequisites, effort (S/M/L), expected benefit, what Dubai Police would need to adapt, and risks.
+
+**Where the gaps come from.** `GET /agents/best-practices/gaps` lists them. They are built in plain code from **Agent 1's trend cards** (the top trends of each topic, with their "so what for Dubai Police") plus the **platform demo data** (`horizon_context.json`: linked process, strategic gap %), most pressing first. A person can also type a gap in their own words. Typed gaps are remembered (the newest `BEST_PRACTICES_MAX_CUSTOM_GAPS`, default 20).
+
+How it stays honest:
+- **No evidence, no card.** A practice is kept only if the search tool actually **cited its page**, the page is on a **trusted domain** (`app/resources/best_practice_domains.json`, 20 at most), and it states a result with a number. Funding, plans and "benefits still need evidence" are not results and are dropped. Each result is marked `achieved` (already measured) or `estimated` (a forecast or "if adopted" figure). "No practice found" is a normal answer, and a later empty search never wipes earlier results.
+- **No links in the code.** Pages are found by web search at run time. Source names come from our own domain list, not from the model.
+- **No repeats.** The same result from the same page under two titles is shown once (the better-ranked card is kept).
+- **Code ranks.** Practices are ordered by strength of evidence, then achieved results before estimates, then smaller effort, then recent result. The `recommendation` text is built in code from that ranking, so it always matches the cards.
+- **The fit check uses demo data and says so.** `adaptation_for_dubai_police` is based only on the platform demo data given for that gap. With none (a typed gap), it says what information about our own process is needed instead of inventing it. Real SOP-based fit comes with Agent 4.
+- **`outdated`** is true when Agent 1's trend cards or the platform data changed since the practices were found.
+- Cards are `status: "draft"` and `handoff: "not_sent"`. Approved practices are meant to go to the Improvement Portfolio (Agent 6) as candidate initiatives; that hand-off is for the backend developer and Agent 6.
+
+### When it runs
+
+On demand only. Saved practices are returned without searching. A search happens when nothing is saved for the gap yet, or when `refresh` is true. One search (one model call with web search) per gap.
+
+### Endpoints
+
+- `GET /agents/best-practices/gaps`: the gaps, with how many practices are saved for each.
+- `GET /agents/best-practices?gap=digital-twin`: the saved practices (never searches). Add `&refresh=true` to search now.
+- `POST /agents/best-practices/run` with `{"gap_id": "digital-twin"}` or `{"custom_gap": "Speed up approval of public safety permits"}` (and optional `"refresh": true`).
+- `POST /agents/best-practices/chat` with `{"message": "...", "history": []}`: the on-demand conversation, same pattern as the Horizon agent. If the request is vague it asks which gap (`type: "question"` with `suggestions`); otherwise it runs (`type: "result"`).
+
+The response has `gap`, `practices` (each with `rank`, `organization`, `title`, `what_they_did`, `result`, `result_kind`, `result_year`, `evidence`, `prerequisites`, `effort`, `expected_benefit`, `adaptation_for_dubai_police`, `risks`, `source_name`, `source_url`, `confidence`), `recommendation`, `outdated`, `last_run`, `warning`, `disclaimer` and `status`.
 
 ## API reference
 
@@ -463,6 +537,13 @@ All settings are environment variables (or `.env`). See `.env.example`.
 | `BENCHMARK_STORE_PATH` | `data/benchmark_store.json` | Results file. Empty = memory only |
 | `BENCHMARK_AUTO_RUN_AFTER_REFRESH` | `true` | Check after each automatic feed refresh (it searches only when due) |
 | `BENCHMARK_REFRESH_DAYS` | 90 | Results older than this are searched again |
+| `BENCHMARK_STALE_YEARS` | 3 | A figure this many years old gets an "out of date" note |
+| `BEST_PRACTICES_MODEL` | `gpt-5.4-mini` | Needs web search and a JSON format |
+| `BEST_PRACTICES_MAX_OUTPUT_TOKENS` | 6000 | Reasoning models count hidden thinking tokens here too |
+| `BEST_PRACTICES_STORE_PATH` | `data/best_practices_store.json` | Results file. Empty = memory only |
+| `BEST_PRACTICES_MAX_CARDS` | 5 | Most practices per gap |
+| `BEST_PRACTICES_MAX_QUESTIONS` | 2 | Clarifying questions before it just runs (0 = never ask) |
+| `BEST_PRACTICES_MAX_CUSTOM_GAPS` | 20 | Typed gaps that are remembered |
 | `OPENAI_TIMEOUT_SECONDS` | 180 | Research searches can be slow |
 | `ALLOWED_ORIGINS` | `*` | CORS origins |
 | `LOG_LEVEL` | `INFO` | The log shows `Research refresh`, `Dropped item` and per-topic lines that explain results |
@@ -476,6 +557,7 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - **Quick questions**: edit `app/resources/quick_questions.json`, then restart.
 - **How the Horizon agent scores and writes cards**: edit `app/prompts/horizon_analysis.md`. **How it asks questions**: edit `app/prompts/horizon_planner.md`. **The demo profile per topic**: edit `app/resources/horizon_context.json`. Restart after any change.
 - **Benchmarking indicators, trusted domains and what to look for**: edit `app/resources/benchmark_indicators.json`. **The entities of the competitive table**: edit `app/resources/benchmark_entities.json`. **How figures are searched and reported**: `app/prompts/benchmark_search.md`. Restart after any change.
+- **Best practice domains**: edit `app/resources/best_practice_domains.json`. **How practices are searched and written**: `app/prompts/best_practices_search.md`. **How it asks which gap**: `app/prompts/best_practices_planner.md`. Restart after any change.
 - **Models, schedule, limits**: set the environment variables above, then restart.
 
 ## Troubleshooting
@@ -513,3 +595,4 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - Nothing here uses internal Dubai Police data. The Horizon agent's profile (`horizon_context.json`) is demo data copied from the prototype.
 - Benchmark figures are read by AI from pages found with web search, so spot-check the source link. Coverage can be thin: police forces rarely publish comparable scores, and many indices are country-level only. The agent says "not found" instead of guessing. The baseline scores are demo data.
 - Horizon scores are an AI estimate from short summaries, not a measurement. Cards stay `draft`: there is no approval flow, audit log or Arabic output in this POC.
+- Best practices are read by AI from pages found with web search, so spot-check each source link. 'Effort' and the adaptation notes are an AI estimate, and the fit uses demo platform data until real processes (Agent 4) are available. There is no approval flow or hand-off to Agent 6 yet.

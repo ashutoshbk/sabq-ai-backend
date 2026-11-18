@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import benchmark, chat, health, horizon, trends
+from app.api import benchmark, best_practices, chat, health, horizon, trends
 from app.api.deps import get_benchmark_service, get_horizon_service, get_trends_service
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
@@ -83,7 +83,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Sabq AI Backend (POC)",
-        version="0.5.0",
+        version="0.6.0",
         description=(
             "AI endpoints for the Sabq Smart Platform proof of concept.\n\n"
             "- **Chat**: a guard-railed assistant for strategic planning, foresight, "
@@ -97,7 +97,10 @@ def create_app() -> FastAPI:
             "talks: it asks what you want, then runs. Cards stay in draft until approved.\n"
             "- **Agents / Benchmarking**: finds published indicator figures online for the entities "
             "of the competitive table, shows the source link, and explains what can and cannot be "
-            "compared. Nothing is estimated."
+            "compared. Nothing is estimated.\n"
+            "- **Agents / Best Practices**: for a gap (from the trend cards and platform data, or your own "
+            "words) it finds proven practices at leading organizations, each with a published measurable "
+            "result, a source link, effort and an adaptation note. Cards stay in draft until approved."
         ),
         lifespan=lifespan,
     )
@@ -116,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(trends.router)
     app.include_router(horizon.router)
     app.include_router(benchmark.router)
+    app.include_router(best_practices.router)
 
     @app.get("/", include_in_schema=False)
     async def root():

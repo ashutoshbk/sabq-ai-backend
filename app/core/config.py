@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     benchmark_refresh_days: int = Field(default=90, ge=1, le=730)  # how old results may get before a new search
     benchmark_stale_years: int = Field(default=3, ge=1, le=20)  # a figure this many years old gets an 'out of date' note
 
+    # Best Practices Curator (Agent 3)
+    best_practices_model: str = "gpt-5.4-mini"
+    best_practices_max_output_tokens: int = 6000
+    best_practices_store_path: str = "data/best_practices_store.json"  # empty = do not save to a file
+    best_practices_max_cards: int = Field(default=5, ge=1, le=10)  # most practices per gap
+    best_practices_max_questions: int = Field(default=2, ge=0, le=5)  # clarifying questions before it just runs
+    best_practices_max_custom_gaps: int = Field(default=20, ge=1, le=200)  # typed gaps we remember
+
     openai_timeout_seconds: float = 180.0
 
     allowed_origins: str = "*"

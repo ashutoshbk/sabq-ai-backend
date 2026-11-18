@@ -1,0 +1,102 @@
+[
+  {
+    "domain": "unodc.org",
+    "name": "UN Office on Drugs and Crime (UNODC)",
+    "level": 1
+  },
+  {
+    "domain": "oecd.org",
+    "name": "OECD",
+    "level": 1
+  },
+  {
+    "domain": "weforum.org",
+    "name": "World Economic Forum",
+    "level": 1
+  },
+  {
+    "domain": "un.org",
+    "name": "United Nations",
+    "level": 1
+  },
+  {
+    "domain": "interpol.int",
+    "name": "INTERPOL",
+    "level": 2
+  },
+  {
+    "domain": "europol.europa.eu",
+    "name": "Europol",
+    "level": 2
+  },
+  {
+    "domain": "police.gov.sg",
+    "name": "Singapore Police Force",
+    "level": 2
+  },
+  {
+    "domain": "mha.gov.sg",
+    "name": "Singapore Ministry of Home Affairs",
+    "level": 2
+  },
+  {
+    "domain": "met.police.uk",
+    "name": "Metropolitan Police London",
+    "level": 2
+  },
+  {
+    "domain": "college.police.uk",
+    "name": "College of Policing (UK)",
+    "level": 5
+  },
+  {
+    "domain": "gov.uk",
+    "name": "UK Government",
+    "level": 5
+  },
+  {
+    "domain": "nyc.gov",
+    "name": "New York Police Department (NYPD)",
+    "level": 2
+  },
+  {
+    "domain": "ojp.gov",
+    "name": "Office of Justice Programs (US Department of Justice)",
+    "level": 5
+  },
+  {
+    "domain": "rand.org",
+    "name": "RAND Corporation",
+    "level": 5
+  },
+  {
+    "domain": "iacp.org",
+    "name": "International Association of Chiefs of Police (IACP)",
+    "level": 5
+  },
+  {
+    "domain": "u.ae",
+    "name": "UAE Government Portal",
+    "level": 4
+  },
+  {
+    "domain": "dubaipolice.gov.ae",
+    "name": "Dubai Police",
+    "level": 4
+  },
+  {
+    "domain": "dubaifuture.ae",
+    "name": "Dubai Future Foundation",
+    "level": 4
+  },
+  {
+    "domain": "turing.ac.uk",
+    "name": "The Alan Turing Institute",
+    "level": 5
+  },
+  {
+    "domain": "policefoundation.org.uk",
+    "name": "The Police Foundation (UK)",
+    "level": 5
+  }
+]

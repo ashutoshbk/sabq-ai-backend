@@ -10,3 +10,4 @@ venv/
 *.log
 
 _backup_before_horizon/
+_to_delete/
