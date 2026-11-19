@@ -1,0 +1,295 @@
+{
+ "note": "Demo data copied from the prototype (sabq-platform.html). Replace with real platform data.",
+ "meta": {
+  "last_update": "2025-05",
+  "charts_without_labels": [
+   "Competitive indicators bar chart"
+  ],
+  "tiles": {
+   "processes": 5,
+   "procedures": 5,
+   "steps": 29,
+   "maturity": 4.2
+  }
+ },
+ "processes": [
+  {
+   "code": "OPS-001",
+   "name": "Strategic Monitoring",
+   "category": "Monitoring",
+   "level": "Distinguished",
+   "maturity": 5,
+   "gap_percent": 8
+  },
+  {
+   "code": "OPS-002",
+   "name": "Strategic Thinking",
+   "category": "Planning",
+   "level": "Advanced",
+   "maturity": 4,
+   "gap_percent": 13
+  },
+  {
+   "code": "OPS-003",
+   "name": "Policies",
+   "category": "Policies",
+   "level": "Advanced",
+   "maturity": 4,
+   "gap_percent": 12
+  },
+  {
+   "code": "OPS-004",
+   "name": "Performance Indicators",
+   "category": "Performance",
+   "level": "Distinguished",
+   "maturity": 5,
+   "gap_percent": 6
+  },
+  {
+   "code": "OPS-005",
+   "name": "Global Competitiveness",
+   "category": "Competitiveness",
+   "level": "Medium",
+   "maturity": 3,
+   "gap_percent": 28
+  }
+ ],
+ "awards": [
+  {
+   "id": "iso-9001",
+   "title": "ISO 9001:2015 – Quality Management System",
+   "org": "ISO",
+   "kind": "standard",
+   "priority": "High Priority",
+   "duration": "12-18 months",
+   "status": "Under Study",
+   "processes": [
+    "OPS-003",
+    "OPS-002",
+    "OPS-001"
+   ]
+  },
+  {
+   "id": "iso-56002",
+   "title": "ISO 56002:2019 – Innovation Management System",
+   "org": "ISO",
+   "kind": "standard",
+   "priority": "High Priority",
+   "duration": "18-24 months",
+   "status": "Available",
+   "processes": [
+    "OPS-005",
+    "OPS-004",
+    "OPS-002"
+   ]
+  },
+  {
+   "id": "iso-37001",
+   "title": "ISO 37001:2016 – Anti-Bribery Management System",
+   "org": "ISO",
+   "kind": "standard",
+   "priority": "Medium Priority",
+   "duration": "12-15 months",
+   "status": "Available",
+   "processes": [
+    "OPS-001",
+    "OPS-003"
+   ]
+  },
+  {
+   "id": "iso-31000",
+   "title": "ISO 31000:2018 – Risk Management",
+   "org": "ISO",
+   "kind": "standard",
+   "priority": "Medium Priority",
+   "duration": "9-12 months",
+   "status": "Available",
+   "processes": [
+    "OPS-001"
+   ]
+  },
+  {
+   "id": "efqm",
+   "title": "EFQM Excellence Award",
+   "org": "European Foundation for Quality Management",
+   "kind": "award",
+   "priority": "High Priority",
+   "duration": "9 months",
+   "status": "Available",
+   "processes": [
+    "OPS-001"
+   ],
+   "deadline": "2027-03-31",
+   "deadline_is_demo": true
+  },
+  {
+   "id": "skea",
+   "title": "Sheikh Khalifa Excellence Award (SKEA – UAE)",
+   "org": "Abu Dhabi Chamber of Commerce and Industry",
+   "kind": "award",
+   "priority": "Medium Priority",
+   "duration": "6 months",
+   "status": "Available",
+   "processes": [
+    "OPS-002"
+   ]
+  },
+  {
+   "id": "dubai-smart-government",
+   "title": "Dubai Smart Government Award",
+   "org": "Dubai Smart Government",
+   "kind": "award",
+   "priority": "Medium Priority",
+   "duration": "6-12 months",
+   "status": "Under Study",
+   "processes": [
+    "OPS-002",
+    "OPS-004"
+   ]
+  }
+ ],
+ "objectives": [
+  {
+   "id": "OBJ-1",
+   "title": "Strengthen strategic thinking and foresight"
+  },
+  {
+   "id": "OBJ-2",
+   "title": "Improve global competitiveness and benchmark position"
+  },
+  {
+   "id": "OBJ-3",
+   "title": "Digitise and simplify planning and monitoring operations"
+  },
+  {
+   "id": "OBJ-4",
+   "title": "Build institutional excellence and win recognised awards"
+  }
+ ],
+ "portfolio": [
+  {
+   "code": "PRT-001",
+   "type": "Initiative",
+   "priority": "High priority",
+   "title": "Digital Transformation Initiative for Planning Operations",
+   "department": "Strategic Planning Department",
+   "due": "2025-09-01",
+   "status": "approved",
+   "execution": "Delayed",
+   "progress": 65,
+   "milestones": [
+    {
+     "id": "M1",
+     "title": "Requirements approved",
+     "due": "2025-02-01"
+    },
+    {
+     "id": "M2",
+     "title": "Platform pilot running",
+     "due": "2025-05-01"
+    },
+    {
+     "id": "M3",
+     "title": "Rollout to all units",
+     "due": "2025-08-01"
+    },
+    {
+     "id": "M4",
+     "title": "Handover and closure report",
+     "due": "2025-09-01"
+    }
+   ]
+  },
+  {
+   "code": "PRT-002",
+   "type": "Recommendation",
+   "priority": "High priority",
+   "title": "Strategic Thinking Capabilities Development Program",
+   "department": "Human Resources Department",
+   "due": "2025-05-15",
+   "status": "approved",
+   "execution": "Completed",
+   "progress": 100,
+   "milestones": [
+    {
+     "id": "M1",
+     "title": "Training needs assessed",
+     "due": "2025-02-15"
+    },
+    {
+     "id": "M2",
+     "title": "Programme delivered",
+     "due": "2025-05-15"
+    }
+   ]
+  },
+  {
+   "code": "PRT-003",
+   "type": "Initiative",
+   "priority": "High priority",
+   "title": "Global Competitiveness Enhancement Project",
+   "department": "Strategic Partnerships Department",
+   "due": "2026-01-20",
+   "status": "approved",
+   "execution": "Delayed",
+   "progress": 50,
+   "milestones": [
+    {
+     "id": "M1",
+     "title": "Baseline competitiveness study",
+     "due": "2025-04-20"
+    },
+    {
+     "id": "M2",
+     "title": "Partnership agreements signed",
+     "due": "2025-09-20"
+    },
+    {
+     "id": "M3",
+     "title": "Improvement actions launched",
+     "due": "2025-12-20"
+    },
+    {
+     "id": "M4",
+     "title": "Results report",
+     "due": "2026-01-20"
+    }
+   ]
+  },
+  {
+   "code": "PRT-005",
+   "type": "Initiative",
+   "priority": "Medium priority",
+   "title": "Smart Strategic Monitoring System",
+   "department": "Monitoring and Evaluation Department",
+   "due": null,
+   "status": "proposed",
+   "execution": "",
+   "progress": 0,
+   "milestones": []
+  },
+  {
+   "code": "PRT-006",
+   "type": "Recommendation",
+   "priority": "Medium priority",
+   "title": "Partnerships with Universities Recommendation",
+   "department": "Strategic Partnerships Department",
+   "due": "2025-09-01",
+   "status": "approved",
+   "execution": "Completed",
+   "progress": 100,
+   "milestones": [
+    {
+     "id": "M1",
+     "title": "Universities shortlisted",
+     "due": "2025-05-01"
+    },
+    {
+     "id": "M2",
+     "title": "Agreements signed",
+     "due": "2025-09-01"
+    }
+   ]
+  }
+ ]
+}

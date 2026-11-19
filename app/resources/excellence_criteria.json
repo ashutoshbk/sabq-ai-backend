@@ -1,0 +1,85 @@
+{
+ "note": "Simplified criteria written for the POC from the public structure of each framework. Replace with the official criteria document.",
+ "awards": {
+  "efqm": {
+   "name": "EFQM Excellence Model (simplified)",
+   "criteria": [
+    {
+     "id": "E1",
+     "name": "Purpose, vision and strategy",
+     "desc": "A clear purpose and a strategy that is turned into action"
+    },
+    {
+     "id": "E2",
+     "name": "Organisational culture and leadership",
+     "desc": "Leaders who shape culture and drive improvement"
+    },
+    {
+     "id": "E3",
+     "name": "Engaging stakeholders",
+     "desc": "Understanding and involving customers, partners and people"
+    },
+    {
+     "id": "E4",
+     "name": "Creating sustainable value",
+     "desc": "Designing and delivering services and value"
+    },
+    {
+     "id": "E5",
+     "name": "Driving performance and transformation",
+     "desc": "Managing performance and improving or transforming"
+    },
+    {
+     "id": "E6",
+     "name": "Stakeholder perceptions",
+     "desc": "Results: what stakeholders think"
+    },
+    {
+     "id": "E7",
+     "name": "Strategic and operational performance",
+     "desc": "Results: achievement of targets and indicators"
+    }
+   ]
+  },
+  "iso-9001": {
+   "name": "ISO 9001:2015 clauses (simplified)",
+   "criteria": [
+    {
+     "id": "C4",
+     "name": "Context of the organization",
+     "desc": "Understanding the organization, interested parties and scope"
+    },
+    {
+     "id": "C5",
+     "name": "Leadership",
+     "desc": "Leadership commitment, quality policy, roles"
+    },
+    {
+     "id": "C6",
+     "name": "Planning",
+     "desc": "Risks and opportunities, quality objectives"
+    },
+    {
+     "id": "C7",
+     "name": "Support",
+     "desc": "Resources, competence, awareness, documented information"
+    },
+    {
+     "id": "C8",
+     "name": "Operation",
+     "desc": "Planning and control of service delivery"
+    },
+    {
+     "id": "C9",
+     "name": "Performance evaluation",
+     "desc": "Monitoring, internal audit, management review"
+    },
+    {
+     "id": "C10",
+     "name": "Improvement",
+     "desc": "Nonconformity, corrective action, continual improvement"
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,15 @@
+{
+ "note": "Demo weights and thresholds. The committee sets the real ones.",
+ "weights": {
+  "alignment": 0.3,
+  "impact": 0.25,
+  "urgency": 0.15,
+  "effort": 0.15,
+  "risk": 0.15
+ },
+ "effort_and_risk_are_inverted": true,
+ "thresholds": {
+  "adopt": 3.6,
+  "defer": 2.6
+ }
+}

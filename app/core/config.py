@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     best_practices_max_questions: int = Field(default=2, ge=0, le=5)  # clarifying questions before it just runs
     best_practices_max_custom_gaps: int = Field(default=20, ge=1, le=200)  # typed gaps we remember
 
+    # Agents 4 to 8 (process, excellence, portfolio, follow-up, executive summary)
+    agents_model: str = "gpt-5.4-mini"  # agents 4 to 7 read text only (no web search); agent 8 uses no model
+    agents_max_output_tokens: int = 6000
+    agents_store_dir: str = "data"  # results are saved here; empty = do not save to files
+    data_stale_months: int = Field(default=6, ge=1, le=60)  # agent 8: a "last update" older than this is flagged
+    results_stale_days: int = Field(default=120, ge=1, le=1000)  # agent 8: agent results older than this are flagged
+
     openai_timeout_seconds: float = 180.0
 
     allowed_origins: str = "*"

@@ -1,0 +1,47 @@
+{
+ "note": "Demo evidence library index built from the prototype's own items. Replace with the real document store index.",
+ "evidence": [
+  {
+   "id": "EV-01",
+   "name": "Strategic Monitoring procedure (OPS-001)",
+   "type": "procedure",
+   "summary": "Six-step procedure for collecting performance data, comparing with targets, reporting and following up corrective actions"
+  },
+  {
+   "id": "EV-02",
+   "name": "Horizon Scan: Global Trends report 2025",
+   "type": "report",
+   "summary": "Scored trend cards for predictive policing, AI policing and digital twins, with sources"
+  },
+  {
+   "id": "EV-03",
+   "name": "Competitive Indicators benchmark table",
+   "type": "report",
+   "summary": "Scores of six peer entities against Dubai Police, with scope and type"
+  },
+  {
+   "id": "EV-04",
+   "name": "Periodic strategic monitoring report",
+   "type": "report",
+   "summary": "Report of deviations from targets with root causes and corrective recommendations"
+  },
+  {
+   "id": "EV-05",
+   "name": "Completion record: Strategic Thinking Capabilities Development Program (PRT-002)",
+   "type": "record",
+   "summary": "Programme completed on 15 May 2025 with implementation evidence uploaded"
+  },
+  {
+   "id": "EV-06",
+   "name": "Completion record: Partnerships with Universities Recommendation (PRT-006)",
+   "type": "record",
+   "summary": "Recommendation implemented, completed"
+  },
+  {
+   "id": "EV-07",
+   "name": "Performance indicators dashboard (OPS-004)",
+   "type": "dashboard",
+   "summary": "Indicators with targets and achievement rates, maturity 5 of 5"
+  }
+ ]
+}

@@ -1,0 +1,17 @@
+{
+ "note": "Demo SOPs. Replace or add real SOP text.",
+ "sops": [
+  {
+   "id": "OPS-001",
+   "name": "Strategic Monitoring",
+   "origin": "From the prototype (process steps only, no owners, systems or times)",
+   "text": "Strategic Monitoring procedure. 1. Collect actual performance data from organizational units. 2. Compare actual performance with approved targets. 3. Analyze deviations and identify root causes. 4. Prepare the periodic strategic monitoring report. 5. Submit the report to leadership with corrective recommendations. 6. Follow up implementation of approved corrective actions."
+  },
+  {
+   "id": "SAMPLE-LEAVE",
+   "name": "Sample: request for external training (demo SOP with deliberate flaws)",
+   "origin": "Sample written for the demo. Not a real Dubai Police procedure.",
+   "text": "Procedure for external training requests. Owner: Training Section. System: HR portal.\n1. The employee fills the training request form (HR portal, 1 day).\n2. The direct manager approves the request (2 days).\n3. The department head approves the request again (2 days).\n4. The Training Section checks the budget (3 days).\n5. If the budget check is incomplete, the request returns to the employee to add missing details (rework, 2 days).\n6. The Training Section sends the request to Finance, who check the budget again (3 days).\n7. The Training Section registers the employee with the provider (1 day).\n8. The employee attends and uploads the certificate. There is no indicator for how long the whole process takes."
+  }
+ ]
+}

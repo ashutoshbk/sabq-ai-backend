@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import benchmark, best_practices, chat, health, horizon, trends
+from app.api import benchmark, best_practices, chat, excellence, executive, followup, portfolio, process, health, horizon, trends
 from app.api.deps import get_benchmark_service, get_horizon_service, get_trends_service
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
@@ -83,7 +83,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Sabq AI Backend (POC)",
-        version="0.6.0",
+        version="0.7.0",
         description=(
             "AI endpoints for the Sabq Smart Platform proof of concept.\n\n"
             "- **Chat**: a guard-railed assistant for strategic planning, foresight, "
@@ -100,7 +100,17 @@ def create_app() -> FastAPI:
             "compared. Nothing is estimated.\n"
             "- **Agents / Best Practices**: for a gap (from the trend cards and platform data, or your own "
             "words) it finds proven practices at leading organizations, each with a published measurable "
-            "result, a source link, effort and an adaptation note. Cards stay in draft until approved."
+            "result, a source link, effort and an adaptation note. Cards stay in draft until approved.\n"
+            "- **Agents / Process Analyst**: reads an SOP, finds duplicate approvals, bottlenecks and "
+            "missing owners, scores maturity (each score needs a quote from the SOP) and proposes a flow.\n"
+            "- **Agents / Excellence Radar**: matches demo evidence to award criteria, gives readiness, "
+            "top gaps and a 90/60/30-day countdown.\n"
+            "- **Agents / Improvement Portfolio**: scores an opportunity, checks overlap with the portfolio "
+            "and recommends Adopt, Defer, Merge or Reject with a draft charter.\n"
+            "- **Agents / Follow-up**: checks an owner's update and uploaded files against milestones "
+            "(no evidence, no completion), then status, delay risk and a reminder.\n"
+            "- **Agents / Executive Summary & Data Quality**: a one-page brief and data checks, "
+            "built in code from the other agents' saved results."
         ),
         lifespan=lifespan,
     )
@@ -120,6 +130,11 @@ def create_app() -> FastAPI:
     app.include_router(horizon.router)
     app.include_router(benchmark.router)
     app.include_router(best_practices.router)
+    app.include_router(process.router)
+    app.include_router(excellence.router)
+    app.include_router(portfolio.router)
+    app.include_router(followup.router)
+    app.include_router(executive.router)
 
     @app.get("/", include_in_schema=False)
     async def root():

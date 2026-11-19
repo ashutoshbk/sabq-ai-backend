@@ -1,6 +1,6 @@
 # Sabq AI Backend (POC)
 
-AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer five things to plug into the existing front-end:
+AI backend for the Sabq Smart Platform proof of concept. It gives the backend developer these things to plug into the existing front-end:
 
 | Feature | Endpoint | Front-end page |
 |---|---|---|
@@ -9,6 +9,11 @@ AI backend for the Sabq Smart Platform proof of concept. It gives the backend de
 | **Horizon Scanning Agent**: reads that research and writes scored trend cards (impact, time-to-adopt, relevance, "so what for Dubai Police"). On demand it talks to the user first | `GET /agents/horizon`, `POST /agents/horizon/chat` | Horizon Scan, Global Trends tab |
 | **Benchmarking Agent**: finds published indicator figures online for the entities of the competitive table, with source links, and explains what can and cannot be compared | `GET /agents/benchmark`, `GET /agents/benchmark/indicators` | Horizon Scan, Competitive Indicators tab |
 | **Best Practices Curator**: for a gap (taken from the Horizon trend cards and platform data, or typed by the user) finds proven practices at leading organizations, each with a published measurable result, source link, effort and an adaptation note. On demand it talks to the user first | `GET /agents/best-practices/gaps`, `GET` and `POST /agents/best-practices`, `POST /agents/best-practices/chat` | Horizon Scan, Best Practices tab |
+| **Process and Procedure Analyst** (Agent 4): reads an SOP, finds duplicate approvals, bottlenecks and missing owners, scores maturity, proposes a leaner flow | `GET /agents/process/processes`, `GET /agents/process/analysis`, `POST /agents/process/analyze` | Process & Procedures |
+| **Excellence Radar** (Agent 5): maps evidence to award criteria, gives readiness, top gaps and a 90/60/30-day countdown | `GET /agents/excellence/awards`, `GET /agents/excellence/assessment`, `POST /agents/excellence/assess` | Excellence & Awards |
+| **Improvement Portfolio** (Agent 6): scores an opportunity, checks overlap, recommends Adopt, Defer, Merge or Reject, drafts a charter | `GET /agents/portfolio/items`, `GET /agents/portfolio/opportunities`, `GET /agents/portfolio/evaluation`, `POST /agents/portfolio/evaluate` | Improvement Portfolio |
+| **Follow-up and Progress** (Agent 7): checks an owner's update and files against milestones, computes progress, status, delay risk and a reminder | `GET /agents/followup/initiatives`, `GET /agents/followup/status`, `POST /agents/followup/check`, `GET /agents/followup/digest` | Improvement Portfolio |
+| **Executive Summary and Data Quality** (Agent 8): one-page brief and data checks, built in code | `GET /agents/executive/brief`, `GET /agents/executive/data-quality` | Dashboard |
 
 The five trend topics come from the prototype: Predictive Policing, AI Policing, Digital Twin, Autonomous Surveillance, Smart Investigation.
 
@@ -16,18 +21,18 @@ Built with FastAPI and the OpenAI Responses API. No database, no login, no Docke
 
 ## The agents at a glance (read this first)
 
-The platform plan (see the colleague's agent document) has eight agents behind one orchestrator, the existing Sabq AI. Every agent follows the same pattern: **trigger, gather, analyze, draft, human approval, publish, log**. This POC builds the first three. Their output is always a **draft** for an officer to approve; the approval, publishing and logging steps belong to the backend developer.
+The platform plan (see the colleague's agent document) has eight agents behind one orchestrator, the existing Sabq AI. Every agent follows the same pattern: **trigger, gather, analyze, draft, human approval, publish, log**. This POC builds all eight. Their output is always a **draft** for an officer to approve; the approval, publishing and logging steps belong to the backend developer.
 
 | # | Agent | Purpose | Data it uses | Status |
 |---|---|---|---|---|
 | 1 | Horizon Scanning | Turns the collected research into scored trend cards: impact, time-to-adopt, relevance, "so what for Dubai Police" | The research feed (`/trends`) | Built |
 | 2 | Benchmarking | Finds published indicator figures online for the entities of the competitive table and explains what can and cannot be compared | Live web search (trusted domains) and the demo table | Built |
 | 3 | Best Practices Curator | Finds proven practices that close a gap, with measurable results, effort and adaptation notes | Agent 1's trend cards, the platform demo data, live web search | Built |
-| 4 | Process and Procedure Analyst | Reads SOPs, finds waste, proposes maturity scores | Needs SOP documents | Not built |
-| 5 | Excellence Radar | Tracks award cycles and maps evidence to criteria | Needs award criteria and an evidence library | Not built |
-| 6 | Improvement Portfolio | Scores and prioritizes opportunities from agents 1 to 5 and drafts charters | Needs the portfolio and strategic objectives | Not built |
-| 7 | Follow-up and Progress | Chases owners, checks evidence, computes progress | Needs initiatives and uploads | Not built |
-| 8 | Executive Summary and Data Quality | Weekly brief and audit of the other agents' data | Needs approved module data | Not built |
+| 4 | Process and Procedure Analyst | Reads an SOP, finds waste, scores maturity (each score needs a quote from the SOP), proposes a flow | Demo SOPs or pasted text | Built |
+| 5 | Excellence Radar | Maps evidence to award criteria, readiness, gaps, countdown | Demo awards, simplified criteria, demo evidence library | Built |
+| 6 | Improvement Portfolio | Scores and prioritizes opportunities (from Agents 1 and 3 or typed) and drafts charters | Demo portfolio, objectives and scoring rules | Built |
+| 7 | Follow-up and Progress | Checks evidence against milestones, computes progress and status, drafts reminders | Demo initiatives and milestones, files named in the request | Built |
+| 8 | Executive Summary and Data Quality | One-page brief and data checks across the other agents | Saved results of Agents 1 to 7, demo platform data (no model) | Built |
 
 How they connect today:
 
@@ -68,6 +73,7 @@ sabq-ai-backend/
 │   │   ├── horizon.py       #   GET /agents/horizon, POST /agents/horizon/chat
 │   │   ├── benchmark.py     #   GET /agents/benchmark, GET /agents/benchmark/indicators
 │   │   ├── best_practices.py #  GET /agents/best-practices/gaps, GET + POST /agents/best-practices, POST .../chat
+│   │   ├── process.py, excellence.py, portfolio.py, followup.py, executive.py  #  Agents 4 to 8 (/agents/process, /excellence, /portfolio, /followup, /executive)
 │   │   ├── health.py        #   GET /health, GET /health/openai
 │   │   └── deps.py          #   builds the services once and reuses them
 │   ├── schemas/             # request/response models = the API contract
@@ -98,11 +104,11 @@ sabq-ai-backend/
 │       ├── benchmark_indicators.json # the indicators to look for: name, publisher, trusted domains (no links)
 │       ├── best_practice_domains.json # trusted domains for practice case studies (no links)
 │       └── quick_questions.json # the 3 fixed quick questions
-├── data/                    # created at run time: trends_store.json, horizon_store.json, benchmark_store.json, best_practices_store.json (not in git)
+├── data/                    # created at run time: trends_store.json, horizon_store.json, benchmark_store.json, best_practices_store.json, process_store.json, excellence_store.json, portfolio_store.json, followup_store.json (not in git)
 ├── scripts/
 │   ├── check_env.py         # step 1: is the environment ready (offline)
 │   └── smoke_test.py        # step 5: try every endpoint with the real key
-└── tests/                   # 212 tests, OpenAI is mocked, no key needed
+└── tests/                   # 303 tests, OpenAI is mocked, no key needed
 ```
 
 Prompts, the topic list, the domain list and the quick questions are plain files. You can change them without touching Python.
@@ -136,7 +142,7 @@ Note: `--reload` restarts the server when `.py` files change, but **not** when y
 Do these in order. If a step fails, fix it before moving on.
 
 1. **Environment**: `python scripts/check_env.py`. Expect all `[ OK ]`, including the API key line.
-2. **Unit tests** (no key, no cost): `pytest`. Expect `212 passed`.
+2. **Unit tests** (no key, no cost): `pytest`. Expect `303 passed`.
 3. **Start the server**, then open `/health`. Expect `"status": "ok"`, `"openai_key_configured": true`, and a `trends_refresh` block showing the schedule (frequency, day, time) and the next run.
 4. **Key and models**: open `/health/openai`. Expect `"status": "ok"` with both models `"ok": true`. This only looks the models up, so it costs nothing. If a model is missing, change `CHAT_MODEL` or `TRENDS_MODEL` (see Troubleshooting).
 5. **Topics** (free): open `/trends/topics`. Expect the five topics with their slugs.
@@ -354,6 +360,22 @@ On demand only. Saved practices are returned without searching. A search happens
 
 The response has `gap`, `practices` (each with `rank`, `organization`, `title`, `what_they_did`, `result`, `result_kind`, `result_year`, `evidence`, `prerequisites`, `effort`, `expected_benefit`, `adaptation_for_dubai_police`, `risks`, `source_name`, `source_url`, `confidence`), `recommendation`, `outdated`, `last_run`, `warning`, `disclaimer` and `status`.
 
+## Agents 4 to 8 (POC)
+
+These five agents follow the same honesty rules as Agents 1 to 3: **the model only reads text; code does the maths, ranking, checks and recommendations**, so a summary cannot contradict the data. Results are always `status: "draft"`, carry a disclaimer, and are saved in `data/*_store.json`. Agents 4 to 7 make **one model call, no web search** per request (`AGENTS_MODEL`). Agent 8 makes **no model call**. Internal data (processes, awards, evidence, portfolio, milestones) is **demo data** taken from the prototype and kept in `app/resources/` (`platform_demo.json`, `sop_demo.json`, `maturity_rubric.json`, `excellence_criteria.json`, `evidence_library.json`, `portfolio_rules.json`). Replace those files, or the backend developer's real sources, when real data is available. No chat endpoints for these agents in the POC.
+
+**Agent 4, Process and Procedure Analyst.** `POST /agents/process/analyze` with `{"process_code": "OPS-001"}` or `{"sop_text": "...", "title": "..."}`. The model extracts steps (owner, system, time), issues and maturity scores per dimension (documentation, ownership, measurement, control, improvement). Code keeps an issue only if it points to real steps or a quote found in the SOP, drops a maturity score above 1 unless its quote is really in the SOP, computes the overall maturity and the before/after step counts, and lists what is missing as questions. `SAMPLE-LEAVE` is a deliberately flawed SOP for demos. `GET /agents/process/analysis?process=OPS-001` reads the saved result.
+
+**Agent 5, Excellence Radar.** `POST /agents/excellence/assess` with `{"award_id": "efqm"}` (optional `deadline`, `refresh`). The model matches evidence-library items to each criterion. Code rejects unknown evidence ids, forces coverage to 0 where nothing matches, computes readiness, picks the 5 weakest criteria as gap tasks and builds the countdown (90/60/30-day tiers and checkpoints). Changing only the deadline updates the countdown without a new model call. Demo deadlines are marked as demo.
+
+**Agent 6, Improvement Portfolio.** `GET /agents/portfolio/opportunities` lists opportunities from Agent 3's saved practices and Agent 1's top card per topic. `POST /agents/portfolio/evaluate` with `{"opportunity_id": "..."}` or `{"title": "...", "description": "..."}`. The model gives five 1-5 scores, objective links, overlaps and a draft charter. Code computes the weighted priority (weights and thresholds in `portfolio_rules.json`; effort and risk count in reverse), validates overlap codes and objectives, and applies the rule: overlap with a live initiative gives **Merge**, otherwise Adopt, Defer or Reject by score. The rationale is built in code. `decision` stays `pending` for the committee.
+
+**Agent 7, Follow-up and Progress.** `GET /agents/followup/initiatives` lists approved initiatives with milestones. `POST /agents/followup/check` with `{"initiative_code": "PRT-001", "update_text": "...", "files": [{"name": "...", "description": "..."}]}`. The model judges Yes, Partial or No per milestone. **No evidence, no completion**: code downgrades a Yes that does not cite an uploaded file that really exists. Code computes progress (Yes = 1, Partial = 0.5), status (Green, Amber, Red, Complete from days overdue), delay risk and a polite English reminder that asks only for what is missing. It never sends anything: sending the reminder is the backend developer's job. `GET /agents/followup/digest` is a weekly summary for the manager, built in code.
+
+**Agent 8, Executive Summary and Data Quality.** `GET /agents/executive/brief` returns at most 250 words in four sections (what changed, risks, decisions needed (max 3), next 30 days). Every line names the module it came from. `GET /agents/executive/data-quality` returns the checks (stale platform data, charts without labels, Agent 2 data checks, cards without sources, stale or missing module results, drafts waiting, delayed initiatives) and the freshness of each module. Thresholds: `DATA_STALE_MONTHS`, `RESULTS_STALE_DAYS`. It is on demand only; the weekly Sunday run is for the backend developer's scheduler.
+
+**Live check:** `python sabq_agents_4_8_check.py` (with the server running) tests all five against the real key and writes a report.
+
 ## API reference
 
 ### `POST /chat`
@@ -544,6 +566,11 @@ All settings are environment variables (or `.env`). See `.env.example`.
 | `BEST_PRACTICES_MAX_CARDS` | 5 | Most practices per gap |
 | `BEST_PRACTICES_MAX_QUESTIONS` | 2 | Clarifying questions before it just runs (0 = never ask) |
 | `BEST_PRACTICES_MAX_CUSTOM_GAPS` | 20 | Typed gaps that are remembered |
+| `AGENTS_MODEL` | gpt-5.4-mini | Model for Agents 4 to 7 |
+| `AGENTS_MAX_OUTPUT_TOKENS` | 6000 | Output limit per agent call |
+| `AGENTS_STORE_DIR` | data | Where Agents 4 to 7 save results |
+| `DATA_STALE_MONTHS` | 6 | Agent 8: platform data older than this is flagged |
+| `RESULTS_STALE_DAYS` | 120 | Agent 8: module results older than this are flagged |
 | `OPENAI_TIMEOUT_SECONDS` | 180 | Research searches can be slow |
 | `ALLOWED_ORIGINS` | `*` | CORS origins |
 | `LOG_LEVEL` | `INFO` | The log shows `Research refresh`, `Dropped item` and per-topic lines that explain results |
@@ -596,3 +623,4 @@ All settings are environment variables (or `.env`). See `.env.example`.
 - Benchmark figures are read by AI from pages found with web search, so spot-check the source link. Coverage can be thin: police forces rarely publish comparable scores, and many indices are country-level only. The agent says "not found" instead of guessing. The baseline scores are demo data.
 - Horizon scores are an AI estimate from short summaries, not a measurement. Cards stay `draft`: there is no approval flow, audit log or Arabic output in this POC.
 - Best practices are read by AI from pages found with web search, so spot-check each source link. 'Effort' and the adaptation notes are an AI estimate, and the fit uses demo platform data until real processes (Agent 4) are available. There is no approval flow or hand-off to Agent 6 yet.
+- Agents 4 to 8 run on demo platform data and demo SOPs, awards, evidence and milestones. Scores, maturity levels, readiness and recommendations are AI-assisted drafts for a person to approve. There is no upload endpoint (Agent 7 receives file names and descriptions only), no sending of reminders, no approval flow and no scheduler for the weekly brief: those belong to the backend developer.

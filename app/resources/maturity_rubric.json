@@ -1,0 +1,50 @@
+{
+ "note": "Demo maturity rubric written for the POC. Replace with the department's real framework.",
+ "dimensions": [
+  {
+   "id": "documentation",
+   "name": "Documentation",
+   "levels": {
+    "1": "No written procedure",
+    "3": "Written steps, some owners or systems missing",
+    "5": "Complete, current, steps with owners, systems and times"
+   }
+  },
+  {
+   "id": "ownership",
+   "name": "Ownership and roles",
+   "levels": {
+    "1": "No owners named",
+    "3": "Owners for some steps",
+    "5": "Every step has a named role and escalation path"
+   }
+  },
+  {
+   "id": "measurement",
+   "name": "Measurement (KPIs)",
+   "levels": {
+    "1": "No indicators",
+    "3": "Some indicators, not tracked",
+    "5": "Indicators with targets, tracked and reviewed"
+   }
+  },
+  {
+   "id": "control",
+   "name": "Control and approvals",
+   "levels": {
+    "1": "Approvals missing or duplicated everywhere",
+    "3": "Approvals exist, some duplicated",
+    "5": "Each approval is needed, none duplicated"
+   }
+  },
+  {
+   "id": "improvement",
+   "name": "Continuous improvement",
+   "levels": {
+    "1": "No review or feedback loop",
+    "3": "Occasional review",
+    "5": "Regular review with documented improvements"
+   }
+  }
+ ]
+}
