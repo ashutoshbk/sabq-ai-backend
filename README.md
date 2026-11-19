@@ -108,7 +108,7 @@ sabq-ai-backend/
 ├── scripts/
 │   ├── check_env.py         # step 1: is the environment ready (offline)
 │   └── smoke_test.py        # step 5: try every endpoint with the real key
-└── tests/                   # 303 tests, OpenAI is mocked, no key needed
+└── tests/                   # 305 tests, OpenAI is mocked, no key needed
 ```
 
 Prompts, the topic list, the domain list and the quick questions are plain files. You can change them without touching Python.
@@ -142,7 +142,7 @@ Note: `--reload` restarts the server when `.py` files change, but **not** when y
 Do these in order. If a step fails, fix it before moving on.
 
 1. **Environment**: `python scripts/check_env.py`. Expect all `[ OK ]`, including the API key line.
-2. **Unit tests** (no key, no cost): `pytest`. Expect `303 passed`.
+2. **Unit tests** (no key, no cost): `pytest`. Expect `305 passed`.
 3. **Start the server**, then open `/health`. Expect `"status": "ok"`, `"openai_key_configured": true`, and a `trends_refresh` block showing the schedule (frequency, day, time) and the next run.
 4. **Key and models**: open `/health/openai`. Expect `"status": "ok"` with both models `"ok": true`. This only looks the models up, so it costs nothing. If a model is missing, change `CHAT_MODEL` or `TRENDS_MODEL` (see Troubleshooting).
 5. **Topics** (free): open `/trends/topics`. Expect the five topics with their slugs.
